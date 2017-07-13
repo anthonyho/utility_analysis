@@ -10,6 +10,34 @@ from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
 
 
+def read_bills(file, bill_type='elec', test=True):
+    usecols = ['keyacctid', 'premiseID', 'rate',
+               'readDate', 'lastReadDate', 'readDays',
+               'kWh', 'kWhOn', 'kWhSemi', 'kWhOff']
+    dtype = {'keyacctid': str,
+             'premiseID': str,
+             'readDate': str,
+             'lastReadDate': str,
+             'readDays': int,
+             'kWh': np.float16,
+             'kWhOn': np.float16,
+             'kWhSemi': np.float16,
+             'kWhOff': np.float16}
+    thousands = ','
+    encoding = "ISO-8859-1"
+    engine = 'c'
+    if test:
+        nrows = 10000
+
+    bills = pd.read_csv(file,
+                        usecols=usecols, dtype=dtype,
+                        thousands=thousands, encoding=encoding, engine=engine,
+                        nrows=nrows)
+    bills['readDate'] = pd.to_datetime(bills['readDate'], format='%m/%d/%Y')
+    bills['lastReadDate'] = pd.to_datetime(bills['lastReadDate'], format='%m/%d/%Y')
+    return bills
+
+
 def calendarize(df, group_keys=['keyacctid', 'premiseID'],
                 list_fields=['kWh', 'kWhOn']):
     new_df = df.groupby(group_keys).apply(_calendarize_group, list_fields)
