@@ -1,0 +1,8 @@
+Commercial:
+1. run convert_to_csv_commercial.sas
+ - Convert SAS7BDAT files to CSV 
+2.  
+
+
+Residential:
+1. run convert_to_csv_residential.sas 
