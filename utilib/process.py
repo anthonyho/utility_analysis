@@ -9,6 +9,10 @@ import pandas as pd
 from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
 
+# To-do's
+# 1. allow reading other types of bills (gas and residential) 
+# 2. allow calendarizing gas bills
+
 
 def read_bills(file, bill_type='elec', test=True):
     usecols = ['keyacctid', 'premiseID', 'rate',
@@ -24,7 +28,7 @@ def read_bills(file, bill_type='elec', test=True):
              'kWhSemi': np.float16,
              'kWhOff': np.float16}
     thousands = ','
-    encoding = "ISO-8859-1"
+    encoding = 'ISO-8859-1'
     engine = 'c'
     if test:
         nrows = 10000
@@ -39,7 +43,7 @@ def read_bills(file, bill_type='elec', test=True):
 
 
 def calendarize(df, group_keys=['keyacctid', 'premiseID'],
-                list_fields=['kWh', 'kWhOn']):
+                list_fields=['kWh', 'kWhOn', 'kWhSemi', 'kWhOff']):
     new_df = df.groupby(group_keys).apply(_calendarize_group, list_fields)
     return new_df.reset_index().drop('level_2', axis=1)
 
@@ -49,7 +53,7 @@ def _calendarize_group(group, list_fields=['kWh', 'kWhOn']):
     for row in group.itertuples():
         expanded_rows.append(_expand_row(row, list_fields))
     expanded_group = pd.concat(expanded_rows, axis=0, ignore_index=True)
-    calendarized_group = expanded_group.groupby('months').sum().reset_index()
+    calendarized_group = expanded_group.groupby('month').sum().reset_index()
     return calendarized_group
 
 
@@ -63,9 +67,7 @@ def _expand_row(row, list_fields):
     days_in_months = _get_days_in_months(start_date, end_date,
                                          n_months, list_months)
     frac = days_in_months / row.readDays
-    expanded_row = pd.DataFrame({'months': list_months})
-    expanded_row['days'] = days_in_months
-    expanded_row['frac'] = frac
+    expanded_row = pd.DataFrame({'month': list_months})
     for field in list_fields:
         expanded_row[field] = getattr(row, field) * frac
     return expanded_row
