@@ -69,8 +69,7 @@ def read_bills(file, bill_type='elec', test=True):
     thousands = ','
     encoding = 'ISO-8859-1'
     engine = 'c'
-    if test:
-        nrows = 10000
+    nrows = 10000 if test else None
 
     bills = pd.read_csv(file,
                         usecols=usecols, dtype=dtype,
