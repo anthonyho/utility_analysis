@@ -43,17 +43,21 @@ def read_bills(file, bill_type='elec', test=True):
 
 
 def calendarize(df, group_keys=['keyacctid', 'premiseID'],
-                list_fields=['kWh', 'kWhOn', 'kWhSemi', 'kWhOff']):
-    new_df = df.groupby(group_keys).apply(_calendarize_group, list_fields)
+                list_fields=['kWh', 'kWhOn', 'kWhSemi', 'kWhOff'],
+                keep_cols=[]):
+    new_df = df.groupby(group_keys).apply(_calendarize_group,
+                                          list_fields, keep_cols)
     return new_df.reset_index(drop=True, level=-1).reset_index()
 
 
-def _calendarize_group(group, list_fields):
+def _calendarize_group(group, list_fields, keep_cols):
     expanded_rows = []
     for row in group.itertuples():
         expanded_rows.append(_expand_row(row, list_fields))
     expanded_group = pd.concat(expanded_rows, axis=0, ignore_index=True)
     calendarized_group = expanded_group.groupby('yr_mo').sum().reset_index()
+    for col in reversed(keep_cols):
+        calendarized_group.insert(0, col, group.iloc[0][col])
     return calendarized_group
 
 
