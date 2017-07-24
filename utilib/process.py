@@ -1,5 +1,5 @@
 # Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 7/12/2017
+# Last update 7/24/2017
 """
 Python module for processing utility data
 """
@@ -10,74 +10,7 @@ from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
 
 # To-do's
-# 1. allow reading other types of bills (gas and residential) 
-# 2. allow calendarizing gas bills
-
-
-def read_costar(file, test=False):
-    usecols = ['PropertyID', 'PropertyType', 'Secondary Type',
-               'Building Address', 'City', 'Zip', 'County Name',
-               'Building Status', 'Year Built', 'Year Renovated',
-               'Number Of Stories', 'Rentable Building Area',
-               'Energy Star', 'LEED Certified', 'Last Sale Date', 'Vacancy %']
-    dtype = {'PropertyID': str,
-             'PropertyType': str,
-             'Secondary Type': str,
-             'Building Address': str,
-             'City': str,
-             'Zip': str,
-             'County Name': str,
-             'Building Status': str,
-             'Year Built': np.float16,
-             'Year Renovated': np.float16,
-             'Number Of Stories': np.float16,
-             'Rentable Building Area': np.float16,
-             'Energy Star': str,
-             'LEED Certified': str,
-             'Last Sale Date': str,
-             'Vacancy %': np.float16}
-    encoding = 'iso-8859-1'
-    engine = 'c'
-    nrows = 10000 if test else None
-
-    data = pd.read_csv(file,
-                       usecols=usecols, dtype=dtype,
-                       encoding=encoding, engine=engine,
-                       nrows=nrows)
-
-    data['Building Address'] = data['Building Address'].str.upper()
-    data['City'] = data['City'].str.upper()
-    data['Zip'] = data['Zip'].str[:5]
-    data['County Name'] = data['County Name'].str.upper()
-
-    return data
-
-
-def read_bills(file, bill_type='elec', test=True):
-    usecols = ['keyacctid', 'premiseID', 'rate',
-               'readDate', 'lastReadDate', 'readDays',
-               'kWh', 'kWhOn', 'kWhSemi', 'kWhOff']
-    dtype = {'keyacctid': str,
-             'premiseID': str,
-             'readDate': str,
-             'lastReadDate': str,
-             'readDays': int,
-             'kWh': np.float16,
-             'kWhOn': np.float16,
-             'kWhSemi': np.float16,
-             'kWhOff': np.float16}
-    thousands = ','
-    encoding = 'ISO-8859-1'
-    engine = 'c'
-    nrows = 10000 if test else None
-
-    bills = pd.read_csv(file,
-                        usecols=usecols, dtype=dtype,
-                        thousands=thousands, encoding=encoding, engine=engine,
-                        nrows=nrows)
-    bills['readDate'] = pd.to_datetime(bills['readDate'], format='%m/%d/%Y')
-    bills['lastReadDate'] = pd.to_datetime(bills['lastReadDate'], format='%m/%d/%Y')
-    return bills
+# 1. allow calendarizing gas bills
 
 
 def calendarize(df, group_keys=['keyacctid', 'premiseID'],
