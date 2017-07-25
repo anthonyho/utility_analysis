@@ -12,27 +12,31 @@ import pandas as pd
 
 
 def read_costar(file, nrows=None):
-    usecols = ['PropertyID', 'PropertyType', 'Secondary Type',
+    usecols = ['PropertyID',
                'Building Address', 'City', 'Zip', 'County Name',
-               'Building Status', 'Year Built', 'Year Renovated',
+               'Longitude', 'Latitude',
+               'PropertyType', 'Secondary Type', 'Building Status',
+               'Year Built', 'Year Renovated', 'Vacancy %',
                'Number Of Stories', 'Rentable Building Area',
-               'Energy Star', 'LEED Certified', 'Last Sale Date', 'Vacancy %']
+               'Energy Star', 'LEED Certified', 'Last Sale Date']
     dtype = {'PropertyID': str,
-             'PropertyType': str,
-             'Secondary Type': str,
              'Building Address': str,
              'City': str,
              'Zip': str,
              'County Name': str,
+             'Longitude': np.float64,
+             'Latitude': np.float64,
+             'PropertyType': str,
+             'Secondary Type': str,
              'Building Status': str,
-             'Year Built': np.float16,
-             'Year Renovated': np.float16,
-             'Number Of Stories': np.float16,
-             'Rentable Building Area': np.float16,
+             'Year Built': np.float64,
+             'Year Renovated': np.float64,
+             'Vacancy %': np.float64,
+             'Number Of Stories': np.float64,
+             'Rentable Building Area': np.float64,
              'Energy Star': str,
              'LEED Certified': str,
-             'Last Sale Date': str,
-             'Vacancy %': np.float16}
+             'Last Sale Date': str}
     encoding = 'iso-8859-1'
     engine = 'c'
 
@@ -40,47 +44,122 @@ def read_costar(file, nrows=None):
                        usecols=usecols, dtype=dtype,
                        encoding=encoding, engine=engine,
                        nrows=nrows)
-
-    data['Building Address'] = data['Building Address'].str.upper()
-    data['City'] = data['City'].str.upper()
-    data['Zip'] = data['Zip'].str[:5]
-    data['County Name'] = data['County Name'].str.upper()
-    data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
-                                            format='%m/%d/%Y')
+    data = data.drop_duplicates()
 
     data = data.rename(columns={'Building Address': 'address',
                                 'City': 'city',
                                 'Zip': 'zip',
                                 'County Name': 'county'})
 
+    data['address'] = data['address'].str.upper()
+    data['city'] = data['city'].str.upper()
+    data['zip'] = data['zip'].str[:5]
+    data['county'] = data['county'].str.upper()
+    data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
+                                            format='%m/%d/%Y')
+
     return data
 
 
-def read_cis(file, nrows=None):
-    usecols = ['serviceAddress', 'serviceCity', 'serviceZip',  # add more
-               'keyAcctId', 'premiseID', 'siteID', 'nrfSiteID', 'meterNum',
-               'Fuel',
+def _modify_fields(usecols, dtype, badcols):
+    for col in badcols:
+        usecols = [badcols[col] if uc == col else uc for uc in usecols]
+        dtype[badcols[col]] = dtype.pop(col)
+    return usecols, dtype
+
+
+def _drop_fields(usecols, dtype, dropcols):
+    for col in dropcols:
+        usecols.remove(col)
+        del dtype[col]
+    return usecols, dtype
+
+
+def _rev_dict(d):
+    return {v: k for k, v in d.items()}
+
+
+def read_cis(file, iou, nrows=None):
+
+    usecols = ['iou', 'fuel',
+               'keyAcctID', 'premiseID', 'siteID', 'nrfSiteID', 'meterNum',
+               'serviceAddress', 'serviceCity', 'serviceZip',
+               'geoID', 'geoLat', 'geoLong',
+               'censusBlock', 'censusCounty', 'censusTract',
+               'CECClimateZone', 'CSSnaicsBldg',
                'premNAICS', 'premNaicsBldg', 'corpNAICS', 'corpNaicsBldg',
-               'CSSnaicsBldg',
-               'BenchmarkFlag', 'CECClimateZone',
-               'NETMETER',
+               'NetMeter', 'BenchmarkFlag',
                'acctProg1012Flag', 'acctProg1314Flag', 'acctProg2015Flag']
-    dtype = {'serviceZip': str,
+    dtype = {'iou': str,
+             'fuel': str,
+             'keyAcctID': str,
              'premiseID': str,
-             'keyAcctId': str}
+             'siteID': str,
+             'nrfSiteID': str,
+             'meterNum': str,
+             'serviceAddress': str,
+             'serviceCity': str,
+             'serviceZip': str,
+             'geoID': np.float64,
+             'geoLat': np.float64,
+             'geoLong': np.float64,
+             'censusBlock': np.float64,
+             'censusCounty': np.float64,
+             'censusTract': np.float64,
+             'CECClimateZone': str,
+             'CSSnaicsBldg': str,
+             'premNAICS': str,
+             'premNaicsBldg': str,
+             'corpNAICS': str,
+             'corpNaicsBldg': str,
+             'NetMeter': str,
+             'BenchmarkFlag': str,
+             'acctProg1012Flag': str,
+             'acctProg1314Flag': str,
+             'acctProg2015Flag': str}
+    thousands = ','
     encoding = 'ISO-8859-1'
     engine = 'c'
 
+    if iou == 'pge':
+        badcols = {'keyAcctID': 'keyAcctId',
+                   'fuel': 'Fuel',
+                   'NetMeter': 'NETMETER'}
+        dropcols = None
+    elif iou == 'sce':
+        badcols = None
+        dropcols = ['CECClimateZone']
+    elif iou == 'sdge':
+        badcols = {'keyAcctID': 'keyAcctId',
+                   'fuel': 'FUEL'}
+        dropcols = ['corpNAICS', 'corpNaicsBldg']
+
+    if badcols is not None:
+        usecols, dtype = _modify_fields(usecols, dtype, badcols)
+    if dropcols is not None:
+        usecols, dtype = _drop_fields(usecols, dtype, dropcols)
+
     cis = pd.read_csv(file,
                       usecols=usecols, dtype=dtype,
-                      encoding=encoding, engine=engine,
+                      thousands=thousands, encoding=encoding, engine=engine,
                       nrows=nrows)
+    cis = cis.drop_duplicates()
 
-    # cis = cis.drop_duplicates()
-    # clean up uneven column names
+    if badcols is not None:
+        cis = cis.rename(columns=_rev_dict(badcols))
     cis = cis.rename(columns={'serviceAddress': 'address',
                               'serviceCity': 'city',
                               'serviceZip': 'zip'})
+
+    cis['address'] = cis['address'].str.upper()
+    cis['city'] = cis['city'].str.upper()
+    cis['NetMeter'] = cis['NetMeter'].map({'Y': True, 'N': False})
+    cis['acctProg1012Flag'] = cis['acctProg1012Flag'].map({'1': True,
+                                                           '0': False})
+    cis['acctProg1314Flag'] = cis['acctProg1314Flag'].map({'1': True,
+                                                           '0': False})
+    cis['acctProg2015Flag'] = cis['acctProg2015Flag'].map({'1': True,
+                                                           '0': False})
 
     return cis
 
