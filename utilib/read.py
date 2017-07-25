@@ -167,11 +167,11 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
         dropcols = None
     elif iou == 'sce':
         badcols = None
-        dropcols = ['CECClimateZone']
+        dropcols = None
     elif iou == 'sdge':
         badcols = {'keyAcctID': 'keyAcctId',
                    'fuel': 'FUEL'}
-        dropcols = ['corpNAICS', 'corpNaicsBldg', 'CECClimateZone']
+        dropcols = ['corpNAICS', 'corpNaicsBldg']
     else:
         badcols = None
         dropcols = None
