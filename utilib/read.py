@@ -19,6 +19,39 @@ bool_dict = {'Y': True,
              '.': np.nan}
 
 
+def _modify_fields(usecols, dtype, badcols):
+    for col in badcols:
+        usecols = [badcols[col] if uc == col else uc for uc in usecols]
+        try:
+            dtype[badcols[col]] = dtype.pop(col)
+        except KeyError:
+            pass
+    return usecols, dtype
+
+
+def _drop_fields(usecols, dtype, dropcols):
+    for col in dropcols:
+        try:
+            usecols.remove(col)
+        except ValueError:
+            pass
+        try:
+            del dtype[col]
+        except KeyError:
+            pass
+    return usecols, dtype
+
+
+def _rev_dict(d):
+    return {v: k for k, v in d.items()}
+
+
+def _filter_valid_id(df, col):
+    df = df[(df[col].str.isnumeric().replace({np.nan: False})) &
+            (df[col] != '0') & (df[col] != 0)]
+    return df
+
+
 def read_costar(file, nrows=None):
     usecols = ['PropertyID',
                'Building Address', 'City', 'Zip', 'County Name',
@@ -69,64 +102,47 @@ def read_costar(file, nrows=None):
     return data
 
 
-def _modify_fields(usecols, dtype, badcols):
-    for col in badcols:
-        usecols = [badcols[col] if uc == col else uc for uc in usecols]
-        dtype[badcols[col]] = dtype.pop(col)
-    return usecols, dtype
-
-
-def _drop_fields(usecols, dtype, dropcols):
-    for col in dropcols:
-        usecols.remove(col)
-        del dtype[col]
-    return usecols, dtype
-
-
-def _rev_dict(d):
-    return {v: k for k, v in d.items()}
-
-
-def read_cis(file, iou, nrows=None):
-
-    # Define columns to read from the CSV file
-    usecols = ['iou', 'fuel',
-               'keyAcctID', 'premiseID', 'siteID', 'nrfSiteID', 'meterNum',
-               'serviceAddress', 'serviceCity', 'serviceZip',
-               'geoID', 'geoLat', 'geoLong',
-               'censusBlock', 'censusCounty', 'censusTract',
-               'CECClimateZone', 'CSSnaicsBldg',
-               'premNAICS', 'premNaicsBldg', 'corpNAICS', 'corpNaicsBldg',
-               'NetMeter', 'BenchmarkFlag',
-               'acctProg1012Flag', 'acctProg1314Flag', 'acctProg2015Flag']
-    # Define the data type of each column
-    dtype = {'iou': str,
-             'fuel': str,
-             'keyAcctID': str,
-             'premiseID': str,
-             'siteID': str,
-             'nrfSiteID': str,
-             'meterNum': str,
-             'serviceAddress': str,
-             'serviceCity': str,
-             'serviceZip': str,
-             'geoID': np.float64,
-             'geoLat': np.float64,
-             'geoLong': np.float64,
-             'censusBlock': np.float64,
-             'censusCounty': np.float64,
-             'censusTract': np.float64,
-             'CECClimateZone': str,
-             'CSSnaicsBldg': str,
-             'premNAICS': str,
-             'premNaicsBldg': str,
-             'corpNAICS': str,
-             'corpNaicsBldg': str,
-             'NetMeter': str,
-             'BenchmarkFlag': str,
-             'acctProg1012Flag': str,
-             'acctProg1314Flag': str,
-             'acctProg2015Flag': str}
+def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
+    # Define default columns to read from the CSV file
+    if usecols is None:
+        usecols = ['iou', 'fuel',
+                   'keyAcctID', 'premiseID', 'siteID', 'nrfSiteID', 'meterNum',
+                   'serviceAddress', 'serviceCity', 'serviceZip',
+                   'geoID', 'geoLat', 'geoLong',
+                   'censusBlock', 'censusCounty', 'censusTract',
+                   'CECClimateZone', 'CSSnaicsBldg',
+                   'premNAICS', 'premNaicsBldg', 'corpNAICS', 'corpNaicsBldg',
+                   'NetMeter', 'BenchmarkFlag',
+                   'acctProg1012Flag', 'acctProg1314Flag', 'acctProg2015Flag']
+    # Define the default data type of each column
+    if dtype is None:
+        dtype = {'iou': str,
+                 'fuel': str,
+                 'keyAcctID': str,
+                 'premiseID': str,
+                 'siteID': str,
+                 'nrfSiteID': str,
+                 'meterNum': str,
+                 'serviceAddress': str,
+                 'serviceCity': str,
+                 'serviceZip': str,
+                 'geoID': np.float64,
+                 'geoLat': np.float64,
+                 'geoLong': np.float64,
+                 'censusBlock': np.float64,
+                 'censusCounty': np.float64,
+                 'censusTract': np.float64,
+                 'CECClimateZone': str,
+                 'CSSnaicsBldg': str,
+                 'premNAICS': str,
+                 'premNaicsBldg': str,
+                 'corpNAICS': str,
+                 'corpNaicsBldg': str,
+                 'NetMeter': str,
+                 'BenchmarkFlag': str,
+                 'acctProg1012Flag': str,
+                 'acctProg1314Flag': str,
+                 'acctProg2015Flag': str}
     # Miscell options
     thousands = ','
     encoding = 'ISO-8859-1'
@@ -173,21 +189,20 @@ def read_cis(file, iou, nrows=None):
                               'serviceCity': 'city',
                               'serviceZip': 'zip'})
     # Standardize the entries of address and city to upper case
-    cis['address'] = cis['address'].str.upper()
-    cis['city'] = cis['city'].str.upper()
+    for col in ['address', 'city']:
+        if col in cis:
+            cis[col].str.upper()
 
     # Drop rows that have bad keyAcctID
-    cis = cis[(cis['keyAcctID'].str.isnumeric().replace({np.nan: False})) &
-              (cis['keyAcctID'] != '0')]
-    cis = cis[(cis['zip'].str.isnumeric().replace({np.nan: False})) &
-              (cis['zip'] != '0')]
+    for col in ['keyAcctID', 'zip']:
+        if col in cis:
+            cis = _filter_valid_id(cis, col)
 
     # Map yes/no columns to boolean
-    cis['NetMeter'] = cis['NetMeter'].map(bool_dict)
-    cis['BenchmarkFlag'] = cis['BenchmarkFlag'].map(bool_dict)
-    cis['acctProg1012Flag'] = cis['acctProg1012Flag'].map(bool_dict)
-    cis['acctProg1314Flag'] = cis['acctProg1314Flag'].map(bool_dict)
-    cis['acctProg2015Flag'] = cis['acctProg2015Flag'].map(bool_dict)
+    for col in ['NetMeter', 'BenchmarkFlag', 'acctProg1012Flag',
+                'acctProg1314Flag', 'acctProg2015Flag']:
+        if col in cis:
+            cis[col] = cis[col].map(bool_dict)
 
     return cis
 
