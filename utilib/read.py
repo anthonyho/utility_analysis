@@ -48,56 +48,68 @@ def _rev_dict(d):
 
 def _filter_valid_id(df, col):
     df = df[(df[col].str.isnumeric().replace({np.nan: False})) &
-            (df[col] != '0') & (df[col] != 0)]
+            (df[col] != '0') &
+            (df[col] != 0)]
     return df
 
 
-def read_costar(file, nrows=None):
-    usecols = ['PropertyID',
-               'Building Address', 'City', 'Zip', 'County Name',
-               'Longitude', 'Latitude',
-               'PropertyType', 'Secondary Type', 'Building Status',
-               'Year Built', 'Year Renovated', 'Vacancy %',
-               'Number Of Stories', 'Rentable Building Area',
-               'Energy Star', 'LEED Certified', 'Last Sale Date']
-    dtype = {'PropertyID': str,
-             'Building Address': str,
-             'City': str,
-             'Zip': str,
-             'County Name': str,
-             'Longitude': np.float64,
-             'Latitude': np.float64,
-             'PropertyType': str,
-             'Secondary Type': str,
-             'Building Status': str,
-             'Year Built': np.float64,
-             'Year Renovated': np.float64,
-             'Vacancy %': np.float64,
-             'Number Of Stories': np.float64,
-             'Rentable Building Area': np.float64,
-             'Energy Star': str,
-             'LEED Certified': str,
-             'Last Sale Date': str}
+def read_costar(file, usecols=None, dtype=None, nrows=None):
+    # Define default columns to read from the CSV file
+    if usecols is None:
+        usecols = ['PropertyID',
+                   'Building Address', 'City', 'Zip', 'County Name',
+                   'Longitude', 'Latitude',
+                   'PropertyType', 'Secondary Type', 'Building Status',
+                   'Year Built', 'Year Renovated', 'Vacancy %',
+                   'Number Of Stories', 'Rentable Building Area',
+                   'Energy Star', 'LEED Certified', 'Last Sale Date']
+    # Define the default data type of each column
+    if dtype is None:
+        dtype = {'PropertyID': str,
+                 'Building Address': str,
+                 'City': str,
+                 'Zip': str,
+                 'County Name': str,
+                 'Longitude': np.float64,
+                 'Latitude': np.float64,
+                 'PropertyType': str,
+                 'Secondary Type': str,
+                 'Building Status': str,
+                 'Year Built': np.float64,
+                 'Year Renovated': np.float64,
+                 'Vacancy %': np.float64,
+                 'Number Of Stories': np.float64,
+                 'Rentable Building Area': np.float64,
+                 'Energy Star': str,
+                 'LEED Certified': str,
+                 'Last Sale Date': str}
+    # Miscell options
     encoding = 'iso-8859-1'
     engine = 'c'
 
+    # Reaf file
     data = pd.read_csv(file,
                        usecols=usecols, dtype=dtype,
                        encoding=encoding, engine=engine,
                        nrows=nrows)
+    # Drop duplicates
     data = data.drop_duplicates()
 
+    # Standardize address columns spelling for easier merging
     data = data.rename(columns={'Building Address': 'address',
                                 'City': 'city',
                                 'Zip': 'zip',
                                 'County Name': 'county'})
 
-    data['address'] = data['address'].str.upper()
-    data['city'] = data['city'].str.upper()
-    data['zip'] = data['zip'].str[:5]
-    data['county'] = data['county'].str.upper()
-    data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
-                                            format='%m/%d/%Y')
+    # Standardize the entries of address, city and county to upper case
+    for col in ['address', 'city', 'county']:
+        if col in data:
+            data[col] = data[col].str.upper()
+    if 'zip' in data:
+        data['zip'] = data['zip'].str[:5]
+    if 'Last Sale Date' in data:
+        data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
+                                                format='%m/%d/%Y')
 
     return data
 
@@ -191,7 +203,7 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
     # Standardize the entries of address and city to upper case
     for col in ['address', 'city']:
         if col in cis:
-            cis[col].str.upper()
+            cis[col] = cis[col].str.upper()
 
     # Drop rows that have bad keyAcctID
     for col in ['keyAcctID', 'zip']:
