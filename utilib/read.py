@@ -10,6 +10,14 @@ import pandas as pd
 # To-do's
 # 1. allow reading other types of bills (gas and residential)
 
+bool_dict = {'Y': True,
+             'N': False,
+             'y': True,
+             'n': False,
+             '1': True,
+             '0': False,
+             '.': np.nan}
+
 
 def read_costar(file, nrows=None):
     usecols = ['PropertyID',
@@ -81,6 +89,7 @@ def _rev_dict(d):
 
 def read_cis(file, iou, nrows=None):
 
+    # Define columns to read from the CSV file
     usecols = ['iou', 'fuel',
                'keyAcctID', 'premiseID', 'siteID', 'nrfSiteID', 'meterNum',
                'serviceAddress', 'serviceCity', 'serviceZip',
@@ -90,6 +99,7 @@ def read_cis(file, iou, nrows=None):
                'premNAICS', 'premNaicsBldg', 'corpNAICS', 'corpNaicsBldg',
                'NetMeter', 'BenchmarkFlag',
                'acctProg1012Flag', 'acctProg1314Flag', 'acctProg2015Flag']
+    # Define the data type of each column
     dtype = {'iou': str,
              'fuel': str,
              'keyAcctID': str,
@@ -117,10 +127,12 @@ def read_cis(file, iou, nrows=None):
              'acctProg1012Flag': str,
              'acctProg1314Flag': str,
              'acctProg2015Flag': str}
+    # Miscell options
     thousands = ','
     encoding = 'ISO-8859-1'
     engine = 'c'
 
+    # Customize the columns that might have been misspelt/missing from each IOU
     if iou == 'pge':
         badcols = {'keyAcctID': 'keyAcctId',
                    'fuel': 'Fuel',
@@ -132,34 +144,50 @@ def read_cis(file, iou, nrows=None):
     elif iou == 'sdge':
         badcols = {'keyAcctID': 'keyAcctId',
                    'fuel': 'FUEL'}
-        dropcols = ['corpNAICS', 'corpNaicsBldg']
+        dropcols = ['corpNAICS', 'corpNaicsBldg', 'CECClimateZone']
+    else:
+        badcols = None
+        dropcols = None
 
-    if badcols is not None:
+    # Modify/drop the misspelt/missing columns
+    if badcols:
         usecols, dtype = _modify_fields(usecols, dtype, badcols)
-    if dropcols is not None:
+    if dropcols:
         usecols, dtype = _drop_fields(usecols, dtype, dropcols)
 
+    # Read file
     cis = pd.read_csv(file,
                       usecols=usecols, dtype=dtype,
                       thousands=thousands, encoding=encoding, engine=engine,
                       nrows=nrows)
+    # Drop duplicates (SCE data has a lot of those)
     cis = cis.drop_duplicates()
+    # Replace '.' as python nan
+    cis = cis.replace({'.': np.nan})
 
-    if badcols is not None:
+    # Rename misspelt columns back to the standardized spelling
+    if badcols:
         cis = cis.rename(columns=_rev_dict(badcols))
+    # Standardize address columns spelling for easier merging
     cis = cis.rename(columns={'serviceAddress': 'address',
                               'serviceCity': 'city',
                               'serviceZip': 'zip'})
-
+    # Standardize the entries of address and city to upper case
     cis['address'] = cis['address'].str.upper()
     cis['city'] = cis['city'].str.upper()
-    cis['NetMeter'] = cis['NetMeter'].map({'Y': True, 'N': False})
-    cis['acctProg1012Flag'] = cis['acctProg1012Flag'].map({'1': True,
-                                                           '0': False})
-    cis['acctProg1314Flag'] = cis['acctProg1314Flag'].map({'1': True,
-                                                           '0': False})
-    cis['acctProg2015Flag'] = cis['acctProg2015Flag'].map({'1': True,
-                                                           '0': False})
+
+    # Drop rows that have bad keyAcctID
+    cis = cis[(cis['keyAcctID'].str.isnumeric().replace({np.nan: False})) &
+              (cis['keyAcctID'] != '0')]
+    cis = cis[(cis['zip'].str.isnumeric().replace({np.nan: False})) &
+              (cis['zip'] != '0')]
+
+    # Map yes/no columns to boolean
+    cis['NetMeter'] = cis['NetMeter'].map(bool_dict)
+    cis['BenchmarkFlag'] = cis['BenchmarkFlag'].map(bool_dict)
+    cis['acctProg1012Flag'] = cis['acctProg1012Flag'].map(bool_dict)
+    cis['acctProg1314Flag'] = cis['acctProg1314Flag'].map(bool_dict)
+    cis['acctProg2015Flag'] = cis['acctProg2015Flag'].map(bool_dict)
 
     return cis
 
