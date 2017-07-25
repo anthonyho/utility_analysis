@@ -13,8 +13,8 @@ import calendar
 # 1. allow calendarizing gas bills
 
 
-def calendarize(df, group_keys=['keyacctid', 'premiseID'],
-                list_fields=['kWh', 'kWhOn', 'kWhSemi', 'kWhOff'],
+def calendarize(df, group_keys=['keyAcctID', 'premiseID'],
+                list_fields=['kWh'],
                 keep_cols=[]):
     new_df = df.groupby(group_keys).apply(_calendarize_group,
                                           list_fields, keep_cols)
