@@ -122,8 +122,8 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
                    'serviceAddress', 'serviceCity', 'serviceZip',
                    'geoID', 'geoLat', 'geoLong',
                    'censusBlock', 'censusCounty', 'censusTract',
-                   'CECClimateZone', 'CSSnaicsBldg',
                    'premNAICS', 'premNaicsBldg', 'corpNAICS', 'corpNaicsBldg',
+                   'CSSnaicsBldg',
                    'NetMeter', 'BenchmarkFlag',
                    'acctProg1012Flag', 'acctProg1314Flag', 'acctProg2015Flag']
     # Define the default data type of each column
@@ -144,12 +144,11 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
                  'censusBlock': np.float64,
                  'censusCounty': np.float64,
                  'censusTract': np.float64,
-                 'CECClimateZone': str,
-                 'CSSnaicsBldg': str,
                  'premNAICS': str,
                  'premNaicsBldg': str,
                  'corpNAICS': str,
                  'corpNaicsBldg': str,
+                 'CSSnaicsBldg': str,
                  'NetMeter': str,
                  'BenchmarkFlag': str,
                  'acctProg1012Flag': str,
