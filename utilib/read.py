@@ -53,7 +53,8 @@ def _filter_valid_id(df, col):
     return df
 
 
-def read_costar(file, usecols=None, dtype=None, nrows=None):
+def read_costar(file, usecols=None, dtype=None, nrows=None,
+                filter_multiple=False):
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['PropertyID',
@@ -110,6 +111,12 @@ def read_costar(file, usecols=None, dtype=None, nrows=None):
     if 'Last Sale Date' in data:
         data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
                                                 format='%m/%d/%Y')
+
+    if filter_multiple:
+        group_keys = ['address', 'city', 'zip']
+        num_bldg = data.groupby(group_keys).size()
+        index_pf = num_bldg[num_bldg == 1].index
+        data = data.set_index(group_keys).loc[index_pf].reset_index()
 
     return data
 
