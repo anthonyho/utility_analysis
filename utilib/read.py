@@ -54,7 +54,7 @@ def _filter_valid_id(df, col):
 
 
 def read_costar(file, usecols=None, dtype=None, nrows=None,
-                filter_multiple=False):
+                filter_multiple=False, **kwargs):
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['PropertyID',
@@ -88,11 +88,11 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
     encoding = 'iso-8859-1'
     engine = 'c'
 
-    # Reaf file
+    # Read file
     data = pd.read_csv(file,
                        usecols=usecols, dtype=dtype,
                        encoding=encoding, engine=engine,
-                       nrows=nrows)
+                       nrows=nrows, **kwargs)
     # Drop duplicates
     data = data.drop_duplicates()
 
@@ -106,12 +106,15 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
     for col in ['address', 'city', 'county']:
         if col in data:
             data[col] = data[col].str.upper()
+    # Extract only the 5-digit zip codes
     if 'zip' in data:
         data['zip'] = data['zip'].str[:5]
+    # Typecast dates
     if 'Last Sale Date' in data:
         data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
                                                 format='%m/%d/%Y')
 
+    # Filter buildings that belong to the same address if selected
     if filter_multiple:
         group_keys = ['address', 'city', 'zip']
         num_bldg = data.groupby(group_keys).size()
@@ -121,7 +124,7 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
     return data
 
 
-def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
+def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['iou', 'fuel',
@@ -172,9 +175,6 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
                    'fuel': 'Fuel',
                    'NetMeter': 'NETMETER'}
         dropcols = None
-    elif iou == 'sce':
-        badcols = None
-        dropcols = None
     elif iou == 'sdge':
         badcols = {'keyAcctID': 'keyAcctId',
                    'fuel': 'FUEL'}
@@ -193,7 +193,7 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
     cis = pd.read_csv(file,
                       usecols=usecols, dtype=dtype,
                       thousands=thousands, encoding=encoding, engine=engine,
-                      nrows=nrows)
+                      nrows=nrows, **kwargs)
     # Drop duplicates (SCE data has a lot of those)
     cis = cis.drop_duplicates()
     # Replace '.' as python nan
@@ -225,28 +225,84 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None):
     return cis
 
 
-def read_bills(file, bill_type='elec', nrows=None):
-    usecols = ['keyacctid', 'premiseID', 'rate',
-               'readDate', 'lastReadDate', 'readDays',
-               'kWh', 'kWhOn', 'kWhSemi', 'kWhOff']
-    dtype = {'keyacctid': str,
-             'premiseID': str,
-             'readDate': str,
-             'lastReadDate': str,
-             'readDays': int,
-             'kWh': np.float16,
-             'kWhOn': np.float16,
-             'kWhSemi': np.float16,
-             'kWhOff': np.float16}
+def read_bills(file, fuel, iou,
+               usecols=None, dtype=None, nrows=None, **kwargs):
+    # Define default columns to read from the CSV file
+    if usecols is None:
+        if fuel == 'elec':
+            usecols = ['keyAcctID', 'premiseID', 'rate',
+                       'readDate', 'lastReadDate', 'readDays',
+                       'kWh', 'kWhOn', 'kWhSemi', 'kWhOff', 'billAmnt']
+        elif fuel == 'gas':
+            usecols = ['keyAcctID', 'premiseID', 'rate',
+                       'readDate', 'lastReadDate', 'readDays',
+                       'Therms', 'billAmnt']
+    # Define the default data type of each column
+    if dtype is None:
+        if fuel == 'elec':
+            dtype = {'keyAcctID': str,
+                     'premiseID': str,
+                     'rate': str,
+                     'readDate': str,
+                     'lastReadDate': str,
+                     'readDays': int,
+                     'kWh': np.float64,
+                     'kWhOn': np.float64,
+                     'kWhSemi': np.float64,
+                     'kWhOff': np.float64,
+                     'billAmnt': str}
+        elif fuel == 'gas':
+            dtype = {'keyAcctID': str,
+                     'premiseID': str,
+                     'rate': str,
+                     'readDate': str,
+                     'lastReadDate': str,
+                     'readDays': int,
+                     'Therms': np.float64,
+                     'billAmnt': str}
+    # Miscell options
     thousands = ','
     encoding = 'ISO-8859-1'
     engine = 'c'
 
+    # Customize the columns that might have been misspelt/missing from each IOU
+    if iou == 'pge':
+        badcols = {'keyAcctID': 'keyacctid'}
+        dropcols = None
+    elif iou == 'sce':
+        badcols = {'keyAcctID': 'keyacctid'}
+        dropcols = ['premiseID']
+    else:
+        badcols = None
+        dropcols = None
+
+    # Modify/drop the misspelt/missing columns
+    if badcols:
+        usecols, dtype = _modify_fields(usecols, dtype, badcols)
+    if dropcols:
+        usecols, dtype = _drop_fields(usecols, dtype, dropcols)
+
+    # Read file
     bills = pd.read_csv(file,
                         usecols=usecols, dtype=dtype,
                         thousands=thousands, encoding=encoding, engine=engine,
-                        nrows=nrows)
-    bills['readDate'] = pd.to_datetime(bills['readDate'], format='%m/%d/%Y')
-    bills['lastReadDate'] = pd.to_datetime(bills['lastReadDate'],
-                                           format='%m/%d/%Y')
+                        nrows=nrows, **kwargs)
+    # Drop duplicates
+    # bills = bills.drop_duplicates()
+
+    # Rename misspelt columns back to the standardized spelling
+    if badcols:
+        bills = bills.rename(columns=_rev_dict(badcols))
+
+    # Typecast dates
+    for col in ['readDate', 'lastReadDate']:
+        if col in bills:
+            bills[col] = pd.to_datetime(bills[col], format='%m/%d/%Y')
+
+    # Extract dollar amount
+    if 'billAmnt' in bills:
+        bills['billAmnt'] = bills['billAmnt'].str.replace('$', '')
+        bills['billAmnt'] = bills['billAmnt'].str.replace(',', '')
+        bills['billAmnt'] = bills['billAmnt'].astype(float)
+
     return bills
