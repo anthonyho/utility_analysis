@@ -1,5 +1,5 @@
 # Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 7/24/2017
+# Last update 7/26/2017
 """
 Python module for reading utility data
 """
@@ -7,8 +7,6 @@ Python module for reading utility data
 import numpy as np
 import pandas as pd
 
-# To-do's
-# 1. allow reading other types of bills (gas and residential)
 
 bool_dict = {'Y': True,
              'N': False,
@@ -293,6 +291,10 @@ def read_bills(file, fuel, iou,
     # Rename misspelt columns back to the standardized spelling
     if badcols:
         bills = bills.rename(columns=_rev_dict(badcols))
+
+    # Pad keyAcctID
+    bills['keyAcctID'] = bills['keyAcctID'].apply(lambda x:
+                                                  '{0:010d}'.format(int(x)))
 
     # Typecast dates
     for col in ['readDate', 'lastReadDate']:
