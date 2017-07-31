@@ -8,9 +8,18 @@ import numpy as np
 import pandas as pd
 from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
+#from censusgeocode import CensusGeocode
 
-# To-do's
-# 1. allow calendarizing gas bills
+
+def get_climate_zones(df, cz_file):
+    cz = pd.read_csv(cz_file, dtype={'zip': str, 'cz': str})
+    return df.merge(cz, on='zip', how='left')
+
+
+#def _get_geocode_single(row):
+#    cg = CensusGeocode()
+    
+#def get_census_()
 
 
 def calendarize(df, group_keys=['keyAcctID', 'premiseID'],
