@@ -1,5 +1,5 @@
 # Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 7/26/2017
+# Last update 7/31/2017
 """
 Python module for reading utility data
 """
@@ -49,6 +49,13 @@ def _filter_valid_id(df, col):
             (df[col] != '0') &
             (df[col] != 0)]
     return df
+
+
+def _pad_digits(x):
+    if pd.notnull(x):
+        return '{0:010d}'.format(int(x))
+    else:
+        return x
 
 
 def read_costar(file, usecols=None, dtype=None, nrows=None,
@@ -122,6 +129,65 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
     return data
 
 
+def _read_cis_scg(cis_file, addr_file, info_file, nrows=None, **kwargs):
+    # Define columns to read from the CSV file and their datatypes
+    usecols_cis = ['BA_ID', 'GNN_ID', 'MTR_ID',
+                   'SADDR', 'SCITY', 'SZIP']
+    dtype_cis = {'BA_ID': str,
+                 'GNN_ID': str,
+                 'MTR_ID': str,
+                 'SADDR': str,
+                 'SCITY': str,
+                 'SZIP': str}
+    usecols_addr = ['BA_ID', 'GEO_X_NB', 'GEO_Y_NB']
+    dtype_addr = {'BA_ID': str,
+                  'GEO_X_NB': np.float64,
+                  'GEO_Y_NB': np.float64}
+    usecols_info = ['BA_ID', 'NAICS']
+    dtype_info = {'BA_ID': str,
+                  'NAICS': str}
+    # Miscell options
+    thousands = ','
+    encoding = 'ISO-8859-1'
+    engine = 'c'
+
+    # Read files and merge into single dataframe
+    cis = pd.read_csv(cis_file,
+                      usecols=usecols_cis, dtype=dtype_cis,
+                      thousands=thousands, encoding=encoding, engine=engine,
+                      nrows=nrows, **kwargs)
+    addr = pd.read_csv(addr_file,
+                       usecols=usecols_addr, dtype=dtype_addr,
+                       thousands=thousands, encoding=encoding, engine=engine,
+                       nrows=nrows, **kwargs)
+    info = pd.read_csv(info_file,
+                       usecols=usecols_info, dtype=dtype_info,
+                       thousands=thousands, encoding=encoding, engine=engine,
+                       nrows=nrows, **kwargs)
+    cis = cis.merge(addr, how='left', on='BA_ID')
+    cis = cis.merge(info, how='left', on='BA_ID')
+
+    # Rename columns to standardized names
+    cis = cis.rename(columns={'BA_ID': 'keyAcctID',
+                              'GNN_ID': 'premiseID',
+                              'MTR_ID': 'meterNum',
+                              'SADDR': 'serviceAddress',
+                              'SCITY': 'serviceCity',
+                              'SZIP': 'serviceZip',
+                              'GEO_X_NB': 'geoLat',
+                              'GEO_Y_NB': 'geoLong',
+                              'NAICS': 'corpNAICS'})
+
+    # Extract only the 5-digit zip codes
+    cis['serviceZip'] = cis['serviceZip'].str[:5]
+
+    # Assign labels for IOU and fuel type
+    cis['iou'] = 'scg'
+    cis['fuel'] = 'G'
+
+    return cis
+
+
 def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
     # Define default columns to read from the CSV file
     if usecols is None:
@@ -188,10 +254,17 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
         usecols, dtype = _drop_fields(usecols, dtype, dropcols)
 
     # Read file
-    cis = pd.read_csv(file,
-                      usecols=usecols, dtype=dtype,
-                      thousands=thousands, encoding=encoding, engine=engine,
-                      nrows=nrows, **kwargs)
+    if iou != 'scg':
+        cis = pd.read_csv(file,
+                          usecols=usecols, dtype=dtype,
+                          thousands=thousands, encoding=encoding,
+                          engine=engine, nrows=nrows, **kwargs)
+    else:
+        cis_file = file['cis']
+        addr_file = file['addr']
+        info_file = file['info']
+        cis = _read_cis_scg(cis_file, addr_file, info_file, nrows, **kwargs)
+
     # Drop duplicates (SCE data has a lot of those)
     cis = cis.drop_duplicates()
     # Replace '.' as python nan
@@ -213,6 +286,11 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
     for col in ['keyAcctID', 'zip']:
         if col in cis:
             cis = _filter_valid_id(cis, col)
+
+    # Pad keyAcctID and premiseID to 10 digits
+    for col in ['keyAcctID', 'premiseID']:
+        if col in cis:
+            cis[col] = cis[col].apply(_pad_digits)
 
     # Map yes/no columns to boolean
     for col in ['NetMeter', 'BenchmarkFlag', 'acctProg1012Flag',
@@ -292,9 +370,8 @@ def read_bills(file, fuel, iou,
     if badcols:
         bills = bills.rename(columns=_rev_dict(badcols))
 
-    # Pad keyAcctID
-    bills['keyAcctID'] = bills['keyAcctID'].apply(lambda x:
-                                                  '{0:010d}'.format(int(x)))
+    # Pad keyAcctID to 10 digits
+    bills['keyAcctID'] = bills['keyAcctID'].apply(_pad_digits)
 
     # Typecast dates
     for col in ['readDate', 'lastReadDate']:
