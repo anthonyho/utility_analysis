@@ -408,6 +408,7 @@ def read_processed_bills(file, multi_index=True, dtype=None):
              'EUI_elec': np.float64,
              'EUI_gas': np.float64,
              'EUI_tot': np.float64,
+             'EUI_tot_mo_avg_2009_2015': np.float64,
              'summary': np.float64}
     # Define all possible (level 1) columns under cis to be converted to float
     col_to_float = ['Longitude', 'Latitude',
