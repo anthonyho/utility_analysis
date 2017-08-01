@@ -11,32 +11,15 @@ import calendar
 #from censusgeocode import CensusGeocode
 
 
-def compute_EUI(df, fuel='tot'):
-    kWh_to_kBTU = 3.41214
-    therms_to_kBTU = 100
-    if fuel == 'tot':
-        elec_kbtu = df['kWh'] * kWh_to_kBTU
-        gas_kbtu = df['Therms'] * therms_to_kBTU
-        total_energy = elec_kbtu.add(gas_kbtu, fill_value=0)
-    elif fuel == 'elec':
-        total_energy = df['kWh'] * kWh_to_kBTU
-    elif fuel == 'gas':
-        total_energy = df['Therms'] * therms_to_kBTU
-    col_name = 'EUI_' + fuel
-    eui = total_energy.div(df['cis']['Rentable Building Area'], axis=0)
-    eui = pd.concat({col_name: eui}, axis=1)
-    return pd.concat([df, eui], axis=1)
+#def _get_geocode_single(row):
+#    cg = CensusGeocode()
+    
+#def get_census_()
 
 
 def get_climate_zones(df, cz_file):
     cz = pd.read_csv(cz_file, dtype={'zip': str, 'cz': str})
     return df.merge(cz, on='zip', how='left')
-
-
-#def _get_geocode_single(row):
-#    cg = CensusGeocode()
-    
-#def get_census_()
 
 
 def calendarize(df, group_keys=['keyAcctID', 'premiseID'],
@@ -86,3 +69,35 @@ def _get_days_in_months(start_date, end_date, n_months, list_yr_mo):
             days_in_months.append(calendar.monthrange(Y, m)[1])
         days_in_months.append(days_in_month_n)
     return np.array(days_in_months)
+
+
+def compute_EUI(df, fuel='tot'):
+    kWh_to_kBTU = 3.41214
+    therms_to_kBTU = 100
+    if fuel == 'tot':
+        elec_kbtu = df['kWh'] * kWh_to_kBTU
+        gas_kbtu = df['Therms'] * therms_to_kBTU
+        total_energy = elec_kbtu.add(gas_kbtu, fill_value=0)
+    elif fuel == 'elec':
+        total_energy = df['kWh'] * kWh_to_kBTU
+    elif fuel == 'gas':
+        total_energy = df['Therms'] * therms_to_kBTU
+    else:
+        raise ValueError('{} not supported'.format(fuel))
+    field_name = 'EUI_' + fuel
+    eui = total_energy.div(df['cis']['Rentable Building Area'], axis=0)
+    eui = pd.concat({field_name: eui}, axis=1)
+    return pd.concat([df, eui], axis=1)
+
+
+def compute_annual_total(df, field, year, as_series=False):
+    year = str(year)
+    yr_mo = [col for col in df[field].columns if col[0:4] == year]
+    col_name = field + '_' + year
+    annual_total = df[field][yr_mo].sum(axis=1, skipna=False)
+    if as_series:
+        return annual_total
+    else:
+        annual_total = pd.concat({col_name: annual_total}, axis=1)
+        annual_total = pd.concat({'summary': annual_total}, axis=1)
+        return pd.concat([df, annual_total], axis=1)
