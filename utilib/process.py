@@ -117,3 +117,19 @@ def compute_annual_avg(df, field, year_range, skipna=True, as_series=False):
         annual_avg = pd.concat({col_name: annual_avg}, axis=1)
         annual_avg = pd.concat({'summary': annual_avg}, axis=1)
         return pd.concat([df, annual_avg], axis=1)
+
+
+def compute_all_annual_totals(df, field):
+    yr_mo = df[field].columns.sort_values()
+    # Make sure getting data from full years only
+    if yr_mo[0][-2:] == '01':
+        start_year = int(yr_mo[0][0:4])
+    else:
+        start_year = int(yr_mo[0][0:4]) + 1
+    if yr_mo[-1][-2:] == '12':
+        end_year = int(yr_mo[-1][0:4])
+    else:
+        end_year = int(yr_mo[-1][0:4]) - 1
+    for year in range(start_year, end_year + 1):
+        df = compute_annual_total(df, field, year, as_series=False)
+    return df
