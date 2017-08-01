@@ -385,3 +385,51 @@ def read_bills(file, fuel, iou,
         bills['billAmnt'] = bills['billAmnt'].astype(float)
 
     return bills
+
+
+def read_processed_bills(file, multi_index=True, dtype=None):
+
+    if multi_index:
+        header = [0, 1]
+    else:
+        header = None
+
+    # Define dtypes for all possible (level 0) columns
+    dtype = {'cis': str,
+             'kWh': np.float64,
+             'kWhOn': np.float64,
+             'kWhSemi': np.float64,
+             'kWhOff': np.float64,
+             'kW': np.float64,
+             'kWOn': np.float64,
+             'kWSemi': np.float64,
+             'billAmnt': np.float64,
+             'Therms': np.float64,
+             'EUI_elec': np.float64,
+             'EUI_gas': np.float64,
+             'EUI_tot': np.float64,
+             'summary': np.float64}
+    # Define all possible (level 1) columns under cis to be converted to float
+    col_to_float = ['Longitude', 'Latitude',
+                    'Year Built', 'Year Renovated',
+                    'Vacancy %', 'Number Of Stories', 'Rentable Building Area']
+    # Define all possible (level 1) columns under cis to be converted to
+    # datetime
+    col_to_time = ['Last Sale Date']
+
+    # Read file
+    df = pd.read_csv(file, header=header, dtype=dtype)
+
+    # Convert (level 1) columns to float
+    for col in col_to_float:
+        full_col = ('cis', col)
+        if full_col in df:
+            df.loc[:, full_col] = df.loc[:, full_col].astype(np.float64)
+    # Convert (level 1) columns to datetime
+    for col in col_to_time:
+        full_col = ('cis', col)
+        if full_col in df:
+            df.loc[:, full_col] = pd.to_datetime(df.loc[:, full_col],
+                                                 format='%Y-%m-%d')
+
+    return df
