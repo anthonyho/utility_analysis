@@ -93,11 +93,27 @@ def compute_EUI(df, fuel='tot'):
 def compute_annual_total(df, field, year, as_series=False):
     year = str(year)
     yr_mo = [col for col in df[field].columns if col[0:4] == year]
-    col_name = field + '_' + year
+    # note that it doesn't make sense to allow NA's when computing total
     annual_total = df[field][yr_mo].sum(axis=1, skipna=False)
     if as_series:
         return annual_total
     else:
+        col_name = field + '_' + year
         annual_total = pd.concat({col_name: annual_total}, axis=1)
         annual_total = pd.concat({'summary': annual_total}, axis=1)
         return pd.concat([df, annual_total], axis=1)
+
+
+def compute_annual_avg(df, field, year_range, skipna=True, as_series=False):
+    start_year = int(year_range[0])
+    end_year = int(year_range[1])
+    annual_totals = [compute_annual_total(df, field, year, as_series=True)
+                     for year in range(start_year, end_year + 1)]
+    annual_avg = pd.concat(annual_totals, axis=1).mean(axis=1, skipna=skipna)
+    if as_series:
+        return annual_avg
+    else:
+        col_name = field + '_avg_' + str(start_year) + '_' + str(end_year)
+        annual_avg = pd.concat({col_name: annual_avg}, axis=1)
+        annual_avg = pd.concat({'summary': annual_avg}, axis=1)
+        return pd.concat([df, annual_avg], axis=1)
