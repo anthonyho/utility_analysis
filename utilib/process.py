@@ -91,10 +91,12 @@ def compute_EUI(df, fuel='tot'):
 
 
 def compute_annual_total(df, field, year, as_series=False):
+    # Tally up all 12 months' of data given a year
     year = str(year)
     yr_mo = [col for col in df[field].columns if col[0:4] == year]
     # note that it doesn't make sense to allow NA's when computing total
     annual_total = df[field][yr_mo].sum(axis=1, skipna=False)
+    # Return a standalone series or insert back into df
     if as_series:
         return annual_total
     else:
@@ -104,12 +106,16 @@ def compute_annual_total(df, field, year, as_series=False):
         return pd.concat([df, annual_total], axis=1)
 
 
-def compute_annual_avg(df, field, year_range, skipna=True, as_series=False):
+def compute_avg_annual_total(df, field, year_range,
+                             skipna=True, as_series=False):
+    # Compute annual totals for the years within date range
     start_year = int(year_range[0])
     end_year = int(year_range[1])
     annual_totals = [compute_annual_total(df, field, year, as_series=True)
                      for year in range(start_year, end_year + 1)]
+    # Average over all annual totals
     annual_avg = pd.concat(annual_totals, axis=1).mean(axis=1, skipna=skipna)
+    # Return a standalone series or insert back into df
     if as_series:
         return annual_avg
     else:
@@ -120,6 +126,7 @@ def compute_annual_avg(df, field, year_range, skipna=True, as_series=False):
 
 
 def compute_all_annual_totals(df, field):
+    # Get all year-month within varoable
     yr_mo = df[field].columns.sort_values()
     # Make sure getting data from full years only
     if yr_mo[0][-2:] == '01':
@@ -130,6 +137,7 @@ def compute_all_annual_totals(df, field):
         end_year = int(yr_mo[-1][0:4])
     else:
         end_year = int(yr_mo[-1][0:4]) - 1
+    # Compute annual totals for all full years
     for year in range(start_year, end_year + 1):
         df = compute_annual_total(df, field, year, as_series=False)
     return df
