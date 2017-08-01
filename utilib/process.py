@@ -90,6 +90,26 @@ def compute_EUI(df, fuel='tot'):
     return pd.concat([df, eui], axis=1)
 
 
+def compute_avg_monthly(df, field, year_range=None):
+    # Make data into multi-index df for grouping by years and months
+    data = df[field].copy()
+    data.columns = pd.MultiIndex.from_tuples([tuple(yr_mo.split('-'))
+                                              for yr_mo in data.columns])
+    # Get only data from the year if specified
+    if year_range:
+        start_year = int(year_range[0])
+        end_year = int(year_range[1])
+        list_year = [str(year) for year in range(start_year, end_year + 1)]
+        data = data[list_year]
+        field_name = field + '_mo_avg_' + str(start_year) + '_' + str(end_year)
+    else:
+        field_name = field + '_mo_avg'
+
+    avg_monthly = data.groupby(level=1, axis=1).mean()
+    avg_monthly = pd.concat({field_name: avg_monthly}, axis=1)
+    return pd.concat([df, avg_monthly], axis=1)
+
+
 def compute_annual_total(df, field, year, as_series=False):
     # Tally up all 12 months' of data given a year
     year = str(year)
