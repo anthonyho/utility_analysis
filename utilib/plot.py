@@ -158,4 +158,18 @@ def plot_heatmap_type_cz(df, types, cz, value):
                             columns='cz',
                             values=value[1])
 
-    return summary
+    # Plot
+    fig = plt.figure(figsize=(6, 3))
+    ax_hm = fig.add_axes([0.125, 0.125, 0.62, 0.755])
+    ax_cb = fig.add_axes([0.76, 0.125, 0.05, 0.755])
+    # Get axes
+    cbar_label = 'Avg. annual EUI\n(kBtu/sq. ft./year)'
+    sns.heatmap(summary,
+                ax=ax_hm, cbar_ax=ax_cb, cbar_kws={'label': cbar_label})
+    setproperties(ax=ax_hm,
+                  xlabel='Climate zone', ylabel='Property type',
+                  tickfontsize=16, labelfontsize=16, tight=False)
+    setproperties(ax=ax_cb,
+                  fontsize=16, tight=False)
+
+    return fig, ax_hm, ax_cb
