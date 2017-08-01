@@ -1,5 +1,5 @@
 # Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 7/24/2017
+# Last update 7/31/2017
 """
 Python module for processing utility data
 """
@@ -9,6 +9,23 @@ import pandas as pd
 from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
 #from censusgeocode import CensusGeocode
+
+
+def compute_EUI(df, fuel='tot'):
+    kWh_to_kBTU = 3.41214
+    therms_to_kBTU = 100
+    if fuel == 'tot':
+        elec_kbtu = df['kWh'] * kWh_to_kBTU
+        gas_kbtu = df['Therms'] * therms_to_kBTU
+        total_energy = elec_kbtu.add(gas_kbtu, fill_value=0)
+    elif fuel == 'elec':
+        total_energy = df['kWh'] * kWh_to_kBTU
+    elif fuel == 'gas':
+        total_energy = df['Therms'] * therms_to_kBTU
+    col_name = 'EUI_' + fuel
+    eui = total_energy.div(df['cis']['Rentable Building Area'], axis=0)
+    eui = pd.concat({col_name: eui}, axis=1)
+    return pd.concat([df, eui], axis=1)
 
 
 def get_climate_zones(df, cz_file):
