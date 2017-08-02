@@ -122,8 +122,10 @@ def setproperties(fig=None, ax=None, figsize=None,
         ax.set_ylim((-ylim_abs, ylim_abs))
 
 
-def plot_heatmap_type_cz(df, types, cz, value):
-    # Extract and process data
+def plot_heatmap_type_cz(df, types, cz, value,
+                         func='mean', q=0.95,
+                         figsize=(6, 3), cbar_label=None):
+    # Extract rows from the specified property types
     ind = pd.Series([False] * len(df))
     for type_tuple in types:
         property_type = type_tuple[0]
@@ -131,27 +133,29 @@ def plot_heatmap_type_cz(df, types, cz, value):
         in_type = ((df[('cis', 'PropertyType')] == property_type) &
                    (df[('cis', 'Secondary Type')] == secondary_type))
         ind = ind | in_type
-
+    # Extract rows from the specified climate zones
     cz = [str(i) for i in cz]
     ind = ind & df[('cis', 'cz')].isin(cz)
-
-    # Extract
+    # Extract rows
     data = df.loc[ind,
                   [('cis', 'cz'),
                    ('cis', 'PropertyType'),
                    ('cis', 'Secondary Type'),
                    value]
                   ]
-
-    # Process
+    # Process df for output
     data.columns = data.columns.droplevel()
-    data['Property type'] = data['PropertyType'] + ' - ' + data['Secondary Type']
+    data['Property type'] = data['PropertyType']+' - '+data['Secondary Type']
     data = data.drop('PropertyType', axis=1)
     data = data.drop('Secondary Type', axis=1)
     data['cz'] = data['cz'].astype(int)
 
     # Compute
-    summary = data.groupby(['Property type', 'cz']).mean().reset_index()
+    data_grouped = data.groupby(['Property type', 'cz'])
+    if func == 'mean':
+        summary = data_grouped.mean().reset_index()
+    elif func == 'percentile':
+        summary = data_grouped.quantile(q).reset_index()
 
     # Reshape
     summary = summary.pivot(index='Property type',
@@ -159,11 +163,17 @@ def plot_heatmap_type_cz(df, types, cz, value):
                             values=value[1])
 
     # Plot
-    fig = plt.figure(figsize=(6, 3))
+    fig = plt.figure(figsize=figsize)
     ax_hm = fig.add_axes([0.125, 0.125, 0.62, 0.755])
     ax_cb = fig.add_axes([0.76, 0.125, 0.05, 0.755])
-    # Get axes
-    cbar_label = 'Avg. annual EUI\n(kBtu/sq. ft./year)'
+    # Define cbar label
+    if cbar_label is None:
+        if func == 'mean':
+            cbar_label = 'Average annual EUI\n(kBtu/sq. ft.)'
+        elif func == 'percentile':
+            text = '{:d}th percentile annual EUI\n(kBtu/sq. ft.)'
+            cbar_label = text.format(int(q * 100))
+
     sns.heatmap(summary,
                 ax=ax_hm, cbar_ax=ax_cb, cbar_kws={'label': cbar_label})
     setproperties(ax=ax_hm,
