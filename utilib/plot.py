@@ -290,3 +290,48 @@ def plot_box_type(df, type_tuple, value, min_counts=10, cz=None,
                   tickfontsize=16, labelfontsize=16, tight=False)
 
     return fig, ax
+
+
+def plot_building_avg_monthly(bills, info, figsize=(6, 5)):
+    if isinstance(info, dict):
+        address = info['address'].upper()
+        city = info['city'].upper()
+        zipcode = str(info['zip'])[0:5]
+        ind = ((bills[('cis', 'address')] == address) &
+               (bills[('cis', 'city')] == city) &
+               (bills[('cis', 'zip')] == zipcode))
+        full_addr = ',' .join([info['address'], info['city'], zipcode])  # to fix
+    else:
+        ind = (bills[('cis', 'PropertyID')] == str(info))
+        full_addr = str(info)   # to fix
+
+    building = bills[ind]
+    property_type = building[('cis', 'PropertyType')].iloc[0]
+    secondary_type = building[('cis', 'Secondary Type')].iloc[0]
+    cz = building[('cis', 'cz')].iloc[0]
+
+    group_ind = ((bills[('cis', 'PropertyType')] == property_type) &
+                 (bills[('cis', 'Secondary Type')] == secondary_type) &
+                 (bills[('cis', 'cz')] == cz))
+    group = bills[group_ind]
+
+    bldg_trace = building['EUI_tot_mo_avg_2009_2015'].iloc[0]
+    group_traces = group['EUI_tot_mo_avg_2009_2015']
+    group_mean_trace = group['EUI_tot_mo_avg_2009_2015'].mean()
+
+    months = [int(mo) for mo in bldg_trace.index]
+
+    fig = plt.figure(figsize=figsize)
+    for (i, row) in group_traces.iterrows():
+        plt.plot(months, row, color='0.7')
+    plt.plot(months, bldg_trace, color='r', linewidth=3)
+    plt.plot(months, group_mean_trace, color='b', linewidth=3)
+    plt.xticks(months)
+
+    setproperties(xlabel='Month',
+                  ylabel='Average monthly EUI\nfrom 2009-2015\n(kBtu/sq. ft.)',
+                  title='Building: ' + full_addr + '\nType = ' + property_type + ' - ' + secondary_type + ', CZ = ' + str(cz),
+                  tickfontsize=16, labelfontsize=16)
+
+    return fig
+
