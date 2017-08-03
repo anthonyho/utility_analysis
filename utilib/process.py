@@ -161,3 +161,12 @@ def compute_all_annual_totals(df, field):
     for year in range(start_year, end_year + 1):
         df = compute_annual_total(df, field, year, as_series=False)
     return df
+
+
+def compute_trend(df, field, year_range, as_series=False):
+    # To be completed
+    start_year = int(year_range[0])
+    end_year = int(year_range[1])
+    list_col = [field + '_' + str(year)
+                for year in range(start_year, end_year + 1)]
+    return df['summary'][list_col]
