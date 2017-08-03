@@ -241,3 +241,52 @@ def plot_box_cz(df, cz, value, min_counts=10, types=None,
                   tickfontsize=16, labelfontsize=16, tight=False)
 
     return fig, ax
+
+
+def plot_box_type(df, type_tuple, value, min_counts=10, cz=None,
+                  figsize=None):  # to fix type name
+    # Extract rows from the specified property type
+    property_type = type_tuple[0]
+    secondary_type = type_tuple[1]
+    ind = ((df[('cis', 'PropertyType')] == property_type) &
+           (df[('cis', 'Secondary Type')] == secondary_type))
+    # Extract rows from the specified climate zones
+    if cz:
+        cz = [str(i) for i in cz]
+        ind = ind & df[('cis', 'cz')].isin(cz)
+    ind = ind & df[('cis', 'cz')].notnull()
+    # Extract rows
+    data = df.loc[ind,
+                  [('cis', 'cz'),
+                   value]
+                  ]
+    # Process df for output
+    data.columns = data.columns.droplevel()
+    data['cz'] = data['cz'].astype(int)
+
+    # Cut off
+    if min_counts:
+        counts = data.groupby('cz').size()
+        cz_pf = counts[counts > min_counts].index
+    # Select types within min_counts
+    data = data[data['cz'].isin(cz_pf)]
+
+    # Get sorted order
+    # types_order = data.groupby('cz').median().sort_values(by=value[1]).index
+
+    # Plot
+    if figsize is None:
+        height = len(cz_pf)  # fix bug when min_counts = 0
+        figsize = (8, height * 0.6)
+    fig = plt.figure(figsize=figsize)
+    ax = sns.boxplot(x=value[1], y='cz', data=data,
+                     # order=types_order,
+                     orient='h', color=colors[10])
+
+    setproperties(ax=ax,
+                  xlabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
+                  ylabel='Climate zone',
+                  title=property_type + ' - ' + secondary_type,
+                  tickfontsize=16, labelfontsize=16, tight=False)
+
+    return fig, ax
