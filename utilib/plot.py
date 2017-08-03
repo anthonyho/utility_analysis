@@ -377,3 +377,30 @@ def plot_building_avg_annual(bills, info, figsize=(6, 4)):
                   tickfontsize=16, labelfontsize=16)
 
     return fig, ax
+
+
+def plot_eui_vs_age(df, cz, figsize=(8, 7)):
+    data = df[[('cis', 'Year Built'),
+               ('cis', 'Year Renovated'),
+               ('cis', 'PropertyType'),
+               ('cis', 'cz'),
+               ('summary', 'EUI_tot_avg_2009_2015')]]
+    data = data[data[('cis', 'cz')] == str(cz)]
+    data.columns = data.columns.droplevel()
+    data['Year'] = data[['Year Built', 'Year Renovated']].max(axis=1)
+    data = data.drop('Year Built', axis=1)
+    data = data.drop('Year Renovated', axis=1)
+    data = data[data['Year'].notnull()]
+    data['Year'] = data['Year'].astype(int)
+
+    fig = plt.figure(figsize=figsize)
+    for key, grp in data.groupby('PropertyType'):
+        plt.plot(grp['Year'], grp['EUI_tot_avg_2009_2015'], 'o', label = key, alpha=0.75)
+    plt.legend(loc = 'best')
+    
+    setproperties(xlabel='Year built / last renovated',
+                  ylabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
+                  title='CZ = ' + str(cz),
+                  tickfontsize=16, labelfontsize=16)
+    
+    return
