@@ -51,9 +51,9 @@ def _filter_valid_id(df, col):
     return df
 
 
-def _pad_digits(x):
+def pad_digits(x, width):
     if pd.notnull(x):
-        return '{0:010d}'.format(int(x))
+        return '{0:0{1}d}'.format(int(x), width)
     else:
         return x
 
@@ -194,8 +194,8 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
         usecols = ['iou', 'fuel',
                    'keyAcctID', 'premiseID', 'siteID', 'nrfSiteID', 'meterNum',
                    'serviceAddress', 'serviceCity', 'serviceZip',
+                   'censusCounty', 'censusTract', 'censusBlock',
                    'geoID', 'geoLat', 'geoLong',
-                   'censusBlock', 'censusCounty', 'censusTract',
                    'premNAICS', 'premNaicsBldg', 'corpNAICS', 'corpNaicsBldg',
                    'CSSnaicsBldg',
                    'NetMeter', 'BenchmarkFlag',
@@ -212,12 +212,12 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
                  'serviceAddress': str,
                  'serviceCity': str,
                  'serviceZip': str,
-                 'geoID': np.float64,
+                 'censusCounty': str,
+                 'censusTract': str,
+                 'censusBlock': str,
+                 'geoID': str,
                  'geoLat': np.float64,
                  'geoLong': np.float64,
-                 'censusBlock': np.float64,
-                 'censusCounty': np.float64,
-                 'censusTract': np.float64,
                  'premNAICS': str,
                  'premNaicsBldg': str,
                  'corpNAICS': str,
@@ -290,7 +290,15 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
     # Pad keyAcctID and premiseID to 10 digits
     for col in ['keyAcctID', 'premiseID']:
         if col in cis:
-            cis[col] = cis[col].apply(_pad_digits)
+            cis[col] = cis[col].apply(pad_digits, width=10)
+
+    # Pad geocodes to the correct digits
+    if 'censusCounty' in cis:
+        cis['censusCounty'] = cis['censusCounty'].apply(pad_digits, width=3)
+    if 'censusTract' in cis:
+        cis['censusTract'] = cis['censusTract'].apply(pad_digits, width=6)
+    if 'censusBlock' in cis:
+        cis['censusBlock'] = cis['censusBlock'].apply(pad_digits, width=4)
 
     # Map yes/no columns to boolean
     for col in ['NetMeter', 'BenchmarkFlag', 'acctProg1012Flag',
@@ -371,7 +379,7 @@ def read_bills(file, fuel, iou,
         bills = bills.rename(columns=_rev_dict(badcols))
 
     # Pad keyAcctID to 10 digits
-    bills['keyAcctID'] = bills['keyAcctID'].apply(_pad_digits)
+    bills['keyAcctID'] = bills['keyAcctID'].apply(pad_digits, width=10)
 
     # Typecast dates
     for col in ['readDate', 'lastReadDate']:
