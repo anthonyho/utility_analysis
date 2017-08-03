@@ -182,7 +182,7 @@ def _read_cis_scg(cis_file, addr_file, info_file, nrows=None, **kwargs):
     cis['serviceZip'] = cis['serviceZip'].str[:5]
 
     # Assign labels for IOU and fuel type
-    cis['iou'] = 'scg'
+    cis['iou'] = 'SCG'
     cis['fuel'] = 'G'
 
     return cis
