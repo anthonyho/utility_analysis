@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
+colors = sns.color_palette('Paired', 12)
+
+
 # Handy function for setting commonly used plot modifiers
 def setproperties(fig=None, ax=None, figsize=None,
                   suptitle=None, title=None,
@@ -183,3 +186,58 @@ def plot_heatmap_type_cz(df, types, cz, value,
                   fontsize=16, tight=False)
 
     return fig, ax_hm, ax_cb
+
+
+def plot_box_cz(df, cz, value, min_counts=10, types=None,
+                figsize=None):
+    # Extract rows from the specified property types
+    if types:
+        ind = pd.Series([False] * len(df))
+        for type_tuple in types:
+            property_type = type_tuple[0]
+            secondary_type = type_tuple[1]
+            in_type = ((df[('cis', 'PropertyType')] == property_type) &
+                       (df[('cis', 'Secondary Type')] == secondary_type))
+            ind = ind | in_type
+    else:
+        ind = pd.Series([True] * len(df))
+    # Extract rows from the specified climate zone
+    cz = str(cz)
+    ind = ind & (df[('cis', 'cz')] == cz)
+    data = df.loc[ind,
+                  [('cis', 'PropertyType'),
+                   ('cis', 'Secondary Type'),
+                   value]
+                  ]
+    # Process df for output
+    data.columns = data.columns.droplevel()
+    data['Property type'] = data['PropertyType']+' - '+data['Secondary Type']
+    data = data.drop('PropertyType', axis=1)
+    data = data.drop('Secondary Type', axis=1)
+
+    # Cut off
+    if min_counts:
+        counts = data.groupby('Property type').size()
+        types_pf = counts[counts > min_counts].index
+    # Select types within min_counts
+    data = data[data['Property type'].isin(types_pf)]
+
+    # Get sorted order
+    types_order = data.groupby('Property type').median().sort_values(by=value[1]).index
+
+    # Plot
+    if figsize is None:
+        height = len(types_pf)  # fix bug when min_counts = 0
+        figsize = (8, height * 0.6)
+    fig = plt.figure(figsize=figsize)
+    ax = sns.boxplot(x=value[1], y='Property type', data=data,
+                     order=types_order,
+                     orient='h', color=colors[8])
+
+    setproperties(ax=ax,
+                  xlabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
+                  ylabel='Property type',
+                  title='Climate zone '+cz,
+                  tickfontsize=16, labelfontsize=16, tight=False)
+
+    return fig, ax
