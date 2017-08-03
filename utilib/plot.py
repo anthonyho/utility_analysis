@@ -335,3 +335,45 @@ def plot_building_avg_monthly(bills, info, figsize=(6, 5)):
 
     return fig
 
+
+def plot_building_avg_annual(bills, info, figsize=(6, 4)):
+    if isinstance(info, dict):
+        address = info['address'].upper()
+        city = info['city'].upper()
+        zipcode = str(info['zip'])[0:5]
+        ind = ((bills[('cis', 'address')] == address) &
+               (bills[('cis', 'city')] == city) &
+               (bills[('cis', 'zip')] == zipcode))
+        full_addr = ',' .join([info['address'], info['city'], zipcode])  # to fix
+    else:
+        ind = (bills[('cis', 'PropertyID')] == str(info))
+        full_addr = str(info)   # to fix
+
+    building = bills[ind]
+    property_type = building[('cis', 'PropertyType')].iloc[0]
+    secondary_type = building[('cis', 'Secondary Type')].iloc[0]
+    cz = building[('cis', 'cz')].iloc[0]
+
+    group_ind = ((bills[('cis', 'PropertyType')] == property_type) &
+                 (bills[('cis', 'Secondary Type')] == secondary_type) &
+                 (bills[('cis', 'cz')] == cz))
+    group = bills[group_ind]
+
+    building_eui = building['summary']['EUI_tot_avg_2009_2015'].iloc[0]
+    group_eui = group['summary']['EUI_tot_avg_2009_2015']
+    group_eui = group_eui[group_eui.notnull()]
+    group_eui_mean = group_eui.mean()
+
+    fig = plt.figure(figsize=figsize)
+    #num_bins = min(20, int(np.ceil(len(group_eui) / 3)))
+    ax = sns.distplot(group_eui)
+    ylim = ax.get_ylim()
+    ax.plot([building_eui, building_eui], ylim, color='r', linewidth=2)
+    ax.plot([group_eui_mean, group_eui_mean], ylim, color='b', linewidth=2)
+
+    setproperties(xlabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
+                  ylabel='Density',
+                  title='Building: ' + full_addr + '\nType = ' + property_type + ' - ' + secondary_type + ', CZ = ' + str(cz),
+                  tickfontsize=16, labelfontsize=16)
+
+    return fig, ax
