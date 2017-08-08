@@ -17,6 +17,19 @@ import calendar
 #def get_census_()
 
 
+def assign_bldg_type(df, bldg_type_file):
+    bldg_type_mapping = pd.read_csv(bldg_type_file)
+    return df.merge(bldg_type_mapping,
+                    how='left',
+                    on=['PropertyType', 'Secondary Type',
+                        'USE_CODE_STD_CTGR_DESC', 'USE_CODE_STD_DESC'])
+
+
+def get_climate_zones(df, cz_file):
+    cz = pd.read_csv(cz_file, dtype={'zip': str, 'cz': str})
+    return df.merge(cz, on='zip', how='left')
+
+
 def expand_range_addr(df):
     address = df['address']
     regex = r"^[0-9]+-[0-9]+$"
@@ -48,11 +61,6 @@ def _expand_range_addr_single(row):
         return df
     else:
         return None
-
-
-def get_climate_zones(df, cz_file):
-    cz = pd.read_csv(cz_file, dtype={'zip': str, 'cz': str})
-    return df.merge(cz, on='zip', how='left')
 
 
 def calendarize(df, group_keys=['keyAcctID', 'premiseID'],
