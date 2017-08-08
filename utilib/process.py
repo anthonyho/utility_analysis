@@ -30,7 +30,22 @@ def get_climate_zones(df, cz_file):
     return df.merge(cz, on='zip', how='left')
 
 
-def expand_range_addr(df):
+def merge_building_cis_data(bldg_data, cis, merge_on_range=True):
+    if merge_on_range:
+        range_addr_map = _expand_range_addr(bldg_data)
+        cis = cis.merge(range_addr_map,
+                        left_on=['address', 'city', 'zip'],
+                        right_on=['indiv_address', 'city', 'zip'],
+                        how='left')
+        ind = cis['range_address'].notnull()
+        cis.loc[ind, 'address'] = cis.loc[ind, 'range_address']
+        cis = cis.drop(['indiv_address', 'range_address'], axis=1)
+    bldg_cis = pd.merge(bldg_data, cis,
+                        how='inner', on=['address', 'city', 'zip'])
+    return bldg_cis
+
+
+def _expand_range_addr(df):
     address = df['address']
     regex = r"^[0-9]+-[0-9]+$"
     ind = address.str.split(pat=' ', n=1).str[0].str.contains(regex)
@@ -54,10 +69,10 @@ def _expand_range_addr_single(row):
         list_st_num = [str(i) for i in range(st_num_start, st_num_end + 2, 2)]
         num_addr = len(list_st_num)
         df = pd.DataFrame({'range_address': [address] * num_addr,
-                           'indiv_addresses': list_st_num,
+                           'indiv_address': list_st_num,
                            'city': [city] * num_addr,
                            'zip': [zipcodes] * num_addr})
-        df['indiv_addresses'] = df['indiv_addresses'] + ' ' + st_name
+        df['indiv_address'] = df['indiv_address'] + ' ' + st_name
         return df
     else:
         return None
