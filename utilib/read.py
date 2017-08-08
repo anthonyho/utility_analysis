@@ -163,6 +163,11 @@ def read_dmp(file, usecols=None, dtype=None, drop_no_st_num=True,
         data['date_transfer'] = pd.to_datetime(data['date_transfer'],
                                                format='%m/%d/%Y')
 
+    # Fix spaces at the end of building types
+    for col in ['USE_CODE_STD_CTGR_DESC', 'USE_CODE_STD_DESC']:
+        if col in data:
+            data[col] = data[col].str.rstrip()
+
     # Get rid of entries that have no street number
     if drop_no_st_num:
         data = data[data['SITE_HOUSE_NUMBER'].notnull()]
