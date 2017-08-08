@@ -58,8 +58,18 @@ def pad_digits(x, width):
         return x
 
 
+def read_dmp_multiple(list_files, **kwargs):
+    list_data = []
+    for file in list_files:
+        list_data.append(read_dmp(file, **kwargs))
+    data = pd.concat(list_data,
+                     axis=0, join='outer', ignore_index=True)
+    data = data.drop_duplicates(subset=['address', 'city', 'zip'])
+    return data
+
+
 def read_dmp(file, usecols=None, dtype=None, nrows=None,
-             filter_multiple=False, **kwargs):
+             filter_multiple=False, drop_no_st_num=True, **kwargs):
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['APN',
@@ -104,11 +114,15 @@ def read_dmp(file, usecols=None, dtype=None, nrows=None,
                                 'COUNTY': 'county',
                                 'LONGITUDE': 'Longitude',
                                 'LATITUDE': 'Latitude',
-                                'YR_BLT': 'Year Built',
-                                'DATE_TRANSFER': 'Last Sale Date',
+                                'YR_BLT': 'year_built',
+                                'DATE_TRANSFER': 'date_transfer',
                                 'BUILDING_SQFT': 'building_area',
                                 'LAND_SQFT': 'land_area'})
 
+    # Drop entries that have empty address/city/zip
+    for col in ['address', 'city', 'county']:
+        if col in data:
+            data = data.dropna(subset=[col], axis=0)
     # Standardize the entries of address, city and county to upper case
     for col in ['address', 'city', 'county']:
         if col in data:
@@ -117,9 +131,14 @@ def read_dmp(file, usecols=None, dtype=None, nrows=None,
     if 'zip' in data:
         data['zip'] = data['zip'].str[:5]
     # Typecast dates
-    if 'Last Sale Date' in data:
-        data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
-                                                format='%m/%d/%Y')
+    if 'date_transfer' in data:
+        data['date_transfer'] = data['date_transfer'].str.split(' ').str[0]
+        data['date_transfer'] = pd.to_datetime(data['date_transfer'],
+                                               format='%m/%d/%Y')
+
+    # Get rid of entries that have no street number
+    if drop_no_st_num:
+        data = data[data['SITE_HOUSE_NUMBER'].notnull()]
 
     # Filter buildings that belong to the same address if selected
     if filter_multiple:
@@ -128,6 +147,16 @@ def read_dmp(file, usecols=None, dtype=None, nrows=None,
         index_pf = num_bldg[num_bldg == 1].index
         data = data.set_index(group_keys).loc[index_pf].reset_index()
 
+    return data
+
+
+def read_costar_multiple(list_files, **kwargs):
+    list_data = []
+    for file in list_files:
+        list_data.append(read_costar(file, **kwargs))
+    data = pd.concat(list_data,
+                     axis=0, join='outer', ignore_index=True)
+    data = data.drop_duplicates(subset=['address', 'city', 'zip'])
     return data
 
 
@@ -180,8 +209,15 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
                                 'City': 'city',
                                 'Zip': 'zip',
                                 'County Name': 'county',
+                                'Year Built': 'year_built',
+                                'Year Renovated': 'year_renovated',
+                                'Last Sale Date': 'date_transfer',
                                 'Rentable Building Area': 'building_area'})
 
+    # Drop entries that have empty address/city/zip
+    for col in ['address', 'city', 'county']:
+        if col in data:
+            data = data.dropna(subset=[col], axis=0)
     # Standardize the entries of address, city and county to upper case
     for col in ['address', 'city', 'county']:
         if col in data:
@@ -190,9 +226,9 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
     if 'zip' in data:
         data['zip'] = data['zip'].str[:5]
     # Typecast dates
-    if 'Last Sale Date' in data:
-        data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
-                                                format='%m/%d/%Y')
+    if 'date_transfer' in data:
+        data['date_transfer'] = pd.to_datetime(data['date_transfer'],
+                                               format='%m/%d/%Y')
 
     # Filter buildings that belong to the same address if selected
     if filter_multiple:
