@@ -17,6 +17,29 @@ bool_dict = {'Y': True,
              '.': np.nan}
 
 
+addr_dict = {r'\bPKY\b': 'PKWY',
+             r'\bALLEY\b': 'ALY',
+             r'\bAVENUE\b': 'AVE',
+             r'\bBOULEVARD\b': 'BLVD',
+             r'\bBYPASS\b': 'BYP',
+             r'\bEXPRESSWAY\b': 'EXPY',
+             r'\bFREEWAY\b': 'FWY',
+             r'\bGATEWAY\b': 'GTWY',
+             r'\bHIGHWAY\b': 'HWY',
+             r'\bJUNCTION\b': 'JCT',
+             r'\bMOUNT\b': 'MT',
+             r'\bPARKWAY\b': 'PKWY',
+             r'\bROAD\b': 'RD',
+             r'\bROUTE\b': 'RTE',
+             r'\bSKYWAY\b': 'SKWY',
+             r'\bSQUARE\b': 'SQ',
+             r'\bSTREET\b': 'ST',
+             r'\bEAST\b': 'E',
+             r'\bSOUTH\b': 'S',
+             r'\bWEST\b': 'W',
+             r'\bNORTH\b': 'N'}
+
+
 def _modify_fields(usecols, dtype, badcols):
     for col in badcols:
         usecols = [badcols[col] if uc == col else uc for uc in usecols]
@@ -68,8 +91,8 @@ def read_dmp_multiple(list_files, **kwargs):
     return data
 
 
-def read_dmp(file, usecols=None, dtype=None, nrows=None,
-             filter_multiple=False, drop_no_st_num=True, **kwargs):
+def read_dmp(file, usecols=None, dtype=None, drop_no_st_num=True,
+             abbr_addr=True, filter_multiple=False, nrows=None, **kwargs):
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['APN',
@@ -127,6 +150,10 @@ def read_dmp(file, usecols=None, dtype=None, nrows=None,
     for col in ['address', 'city', 'county']:
         if col in data:
             data[col] = data[col].str.upper()
+    # Standardize address
+    if ('address' in data) and abbr_addr:
+        for key in addr_dict:
+            data['address'] = data['address'].str.replace(key, addr_dict[key])
     # Extract only the 5-digit zip codes
     if 'zip' in data:
         data['zip'] = data['zip'].str[:5]
@@ -160,8 +187,8 @@ def read_costar_multiple(list_files, **kwargs):
     return data
 
 
-def read_costar(file, usecols=None, dtype=None, nrows=None,
-                filter_multiple=False, **kwargs):
+def read_costar(file, usecols=None, dtype=None,
+                abbr_addr=True, nrows=None, filter_multiple=False, **kwargs):
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['PropertyID',
@@ -222,6 +249,10 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
     for col in ['address', 'city', 'county']:
         if col in data:
             data[col] = data[col].str.upper()
+    # Standardize address
+    if ('address' in data) and abbr_addr:
+        for key in addr_dict:
+            data['address'] = data['address'].str.replace(key, addr_dict[key])
     # Extract only the 5-digit zip codes
     if 'zip' in data:
         data['zip'] = data['zip'].str[:5]
@@ -299,7 +330,8 @@ def _read_cis_scg(cis_file, addr_file, info_file, nrows=None, **kwargs):
     return cis
 
 
-def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
+def read_cis(file, iou, usecols=None, dtype=None,
+             abbr_addr=True, nrows=None, **kwargs):
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['iou', 'fuel',
@@ -402,6 +434,11 @@ def read_cis(file, iou, usecols=None, dtype=None, nrows=None, **kwargs):
     for col in ['keyAcctID', 'premiseID']:
         if col in cis:
             cis[col] = cis[col].apply(pad_digits, width=10)
+
+    # Standardize address
+    if ('address' in cis) and abbr_addr:
+        for key in addr_dict:
+            cis['address'] = cis['address'].str.replace(key, addr_dict[key])
 
     # Pad geocodes to the correct digits
     if 'censusCounty' in cis:
