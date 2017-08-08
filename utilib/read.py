@@ -58,6 +58,79 @@ def pad_digits(x, width):
         return x
 
 
+def read_dmp(file, usecols=None, dtype=None, nrows=None,
+             filter_multiple=False, **kwargs):
+    # Define default columns to read from the CSV file
+    if usecols is None:
+        usecols = ['APN',
+                   'SITE_ADDR', 'SITE_CITY', 'SITE_ZIP', 'COUNTY',
+                   'LONGITUDE', 'LATITUDE', 'SITE_HOUSE_NUMBER',
+                   'USE_CODE_STD_CTGR_DESC', 'USE_CODE_STD_DESC',
+                   'YR_BLT', 'DATE_TRANSFER',
+                   'BUILDING_SQFT', 'LAND_SQFT']
+    # Define the default data type of each column
+    if dtype is None:
+        dtype = {'APN': str,
+                 'SITE_ADDR': str,
+                 'SITE_CITY': str,
+                 'SITE_ZIP': str,
+                 'COUNTY': str,
+                 'LONGITUDE': np.float64,
+                 'LATITUDE': np.float64,
+                 'SITE_HOUSE_NUMBER': str,
+                 'USE_CODE_STD_CTGR_DESC': str,
+                 'USE_CODE_STD_DESC': str,
+                 'YR_BLT': np.float64,
+                 'DATE_TRANSFER': str,
+                 'BUILDING_SQFT': np.float64,
+                 'LAND_SQFT': np.float64}
+    # Miscell options
+    encoding = 'iso-8859-1'
+    engine = 'c'
+
+    # Read file
+    data = pd.read_csv(file,
+                       usecols=usecols, dtype=dtype,
+                       encoding=encoding, engine=engine,
+                       nrows=nrows, **kwargs)
+    # Drop duplicates
+    data = data.drop_duplicates()
+
+    # Standardize columns spelling for easier merging
+    data = data.rename(columns={'APN': 'PropertyID',
+                                'SITE_ADDR': 'address',
+                                'SITE_CITY': 'city',
+                                'SITE_ZIP': 'zip',
+                                'COUNTY': 'county',
+                                'LONGITUDE': 'Longitude',
+                                'LATITUDE': 'Latitude',
+                                'YR_BLT': 'Year Built',
+                                'DATE_TRANSFER': 'Last Sale Date',
+                                'BUILDING_SQFT': 'building_area',
+                                'LAND_SQFT': 'land_area'})
+
+    # Standardize the entries of address, city and county to upper case
+    for col in ['address', 'city', 'county']:
+        if col in data:
+            data[col] = data[col].str.upper()
+    # Extract only the 5-digit zip codes
+    if 'zip' in data:
+        data['zip'] = data['zip'].str[:5]
+    # Typecast dates
+    if 'Last Sale Date' in data:
+        data['Last Sale Date'] = pd.to_datetime(data['Last Sale Date'],
+                                                format='%m/%d/%Y')
+
+    # Filter buildings that belong to the same address if selected
+    if filter_multiple:
+        group_keys = ['address', 'city', 'zip']
+        num_bldg = data.groupby(group_keys).size()
+        index_pf = num_bldg[num_bldg == 1].index
+        data = data.set_index(group_keys).loc[index_pf].reset_index()
+
+    return data
+
+
 def read_costar(file, usecols=None, dtype=None, nrows=None,
                 filter_multiple=False, **kwargs):
     # Define default columns to read from the CSV file
@@ -66,9 +139,9 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
                    'Building Address', 'City', 'Zip', 'County Name',
                    'Longitude', 'Latitude',
                    'PropertyType', 'Secondary Type', 'Building Status',
-                   'Year Built', 'Year Renovated', 'Vacancy %',
-                   'Number Of Stories', 'Rentable Building Area',
-                   'Energy Star', 'LEED Certified', 'Last Sale Date']
+                   'Year Built', 'Year Renovated', 'Last Sale Date',
+                   'Number Of Stories', 'Rentable Building Area', 'Vacancy %',
+                   'Energy Star', 'LEED Certified']
     # Define the default data type of each column
     if dtype is None:
         dtype = {'PropertyID': str,
@@ -83,12 +156,13 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
                  'Building Status': str,
                  'Year Built': np.float64,
                  'Year Renovated': np.float64,
-                 'Vacancy %': np.float64,
+                 'Last Sale Date': str,
                  'Number Of Stories': np.float64,
                  'Rentable Building Area': np.float64,
+                 'Vacancy %': np.float64,
                  'Energy Star': str,
                  'LEED Certified': str,
-                 'Last Sale Date': str}
+                 }
     # Miscell options
     encoding = 'iso-8859-1'
     engine = 'c'
@@ -105,7 +179,8 @@ def read_costar(file, usecols=None, dtype=None, nrows=None,
     data = data.rename(columns={'Building Address': 'address',
                                 'City': 'city',
                                 'Zip': 'zip',
-                                'County Name': 'county'})
+                                'County Name': 'county',
+                                'Rentable Building Area': 'building_area'})
 
     # Standardize the entries of address, city and county to upper case
     for col in ['address', 'city', 'county']:
