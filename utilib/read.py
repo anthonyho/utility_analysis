@@ -171,6 +171,7 @@ def read_dmp(file, usecols=None, dtype=None, drop_no_st_num=True,
     # Get rid of entries that have no street number
     if drop_no_st_num:
         data = data[data['SITE_HOUSE_NUMBER'].notnull()]
+        data = data.drop('SITE_HOUSE_NUMBER', axis=1)
 
     # Filter buildings that belong to the same address if selected
     if filter_multiple:
