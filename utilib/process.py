@@ -17,6 +17,39 @@ import calendar
 #def get_census_()
 
 
+def expand_range_addr(df):
+    address = df['address']
+    regex = r"^[0-9]+-[0-9]+$"
+    ind = address.str.split(pat=' ', n=1).str[0].str.contains(regex)
+    df_range = df[ind]
+    list_expanded_df = []
+    for (i, row) in df_range.iterrows():
+        list_expanded_df.append(_expand_range_addr_single(row))
+    return pd.concat(list_expanded_df, axis=0, ignore_index=True)
+
+
+def _expand_range_addr_single(row):
+    address = row['address']
+    city = row['city']
+    zipcodes = row['zip']
+    st_num, st_name = address.split(sep=' ', maxsplit=1)
+    st_num_start, st_num_end = st_num.split(sep='-', maxsplit=1)
+    st_num_start = int(st_num_start)
+    st_num_end = int(st_num_end)
+    diff = st_num_end - st_num_start
+    if (diff % 2 == 0) and (diff > 0):
+        list_st_num = [str(i) for i in range(st_num_start, st_num_end + 2, 2)]
+        num_addr = len(list_st_num)
+        df = pd.DataFrame({'range_address': [address] * num_addr,
+                           'indiv_addresses': list_st_num,
+                           'city': [city] * num_addr,
+                           'zip': [zipcodes] * num_addr})
+        df['indiv_addresses'] = df['indiv_addresses'] + ' ' + st_name
+        return df
+    else:
+        return None
+
+
 def get_climate_zones(df, cz_file):
     cz = pd.read_csv(cz_file, dtype={'zip': str, 'cz': str})
     return df.merge(cz, on='zip', how='left')
