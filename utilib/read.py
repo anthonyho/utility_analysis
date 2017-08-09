@@ -571,14 +571,23 @@ def read_processed_bills(file, multi_index=True, dtype=None):
              'EUI_gas': np.float64,
              'EUI_tot': np.float64,
              'EUI_tot_mo_avg_2009_2015': np.float64,
+             'EUI_tot_mo_avg_2013_2015': np.float64,
+             'EUI_elec_mo_avg_2009_2015': np.float64,
+             'EUI_elec_mo_avg_2013_2015': np.float64,
+             'EUI_gas_mo_avg_2009_2015': np.float64,
+             'EUI_gas_mo_avg_2013_2015': np.float64,
              'summary': np.float64}
     # Define all possible (level 1) columns under cis to be converted to float
     col_to_float = ['Longitude', 'Latitude',
-                    'Year Built', 'Year Renovated',
-                    'Vacancy %', 'Number Of Stories', 'Rentable Building Area']
+                    'year_built', 'year_renovated',
+                    'Vacancy %', 'Number Of Stories',
+                    'building_area', 'land_area']
     # Define all possible (level 1) columns under cis to be converted to
     # datetime
-    col_to_time = ['Last Sale Date']
+    col_to_time = ['date_transfer']
+    # Define all possible (level 1) columns under cis to be converted to
+    # boolean
+    col_to_bool = ['range_address_ind']
 
     # Read file
     df = pd.read_csv(file, header=header, dtype=dtype)
@@ -594,5 +603,10 @@ def read_processed_bills(file, multi_index=True, dtype=None):
         if full_col in df:
             df.loc[:, full_col] = pd.to_datetime(df.loc[:, full_col],
                                                  format='%Y-%m-%d')
+    # Convert (level 1) columns to boolean
+    for col in col_to_bool:
+        full_col = ('cis', col)
+        if full_col in df:
+            df.loc[:, full_col] = df.loc[:, full_col].astype(bool)
 
     return df
