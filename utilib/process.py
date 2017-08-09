@@ -1,5 +1,5 @@
 # Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 7/31/2017
+# Last update 8/8/2017
 """
 Python module for processing utility data
 """
@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
+from scipy.stats import linregress
 #from censusgeocode import CensusGeocode
 
 
@@ -225,4 +226,24 @@ def compute_trend(df, field, year_range, as_series=False):
     end_year = int(year_range[1])
     list_col = [field + '_' + str(year)
                 for year in range(start_year, end_year + 1)]
-    return df['summary'][list_col]
+    x = np.array([year for year in range(start_year, end_year + 1)])
+    y = df['summary'][list_col]
+    # Fit
+    coeff = pd.DataFrame(y.apply(_fit_row, axis=1, x=x).tolist())
+    col_prefix = field + '_fit_' + str(start_year) + '_' + str(end_year)
+    coeff = coeff.rename(columns={0: col_prefix + '_slope',
+                                  1: col_prefix + '_incpt'})
+    # Return a standalone series (of slope) or insert back into df
+    if as_series:
+        return coeff[col_prefix + '_slope']
+    else:
+        coeff = pd.concat({'summary': coeff}, axis=1)
+        return pd.concat([df, coeff], axis=1)
+
+
+def _fit_row(y, x):
+    mask = ~np.isnan(y)
+    x_masked = x[mask]
+    y_masked = y[mask]
+    result = linregress(x_masked, y_masked)
+    return result.slope, result.intercept
