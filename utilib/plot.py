@@ -18,6 +18,7 @@ colors = sns.color_palette('Paired', 12)
 def setproperties(fig=None, ax=None, figsize=None,
                   suptitle=None, title=None,
                   legend=None, legendloc=1, legendwidth=2.5, legendbox=None,
+                  legend_bbox_to_anchor=None,
                   xlabel=None, ylabel=None, xlim=None, ylim=None,
                   scix=False, sciy=False,
                   scilimitsx=(-3, 3), scilimitsy=(-3, 3),
@@ -52,7 +53,8 @@ def setproperties(fig=None, ax=None, figsize=None,
     # Show legend if requested
     if legend:
         legend = plt.legend(loc=legendloc, numpoints=1,
-                            fontsize=legendfontsize, frameon=legendbox)
+                            fontsize=legendfontsize, frameon=legendbox,
+                            bbox_to_anchor=legend_bbox_to_anchor)
         legend.get_frame().set_linewidth(legendwidth)
     # Set x and y labels if provided
     if xlabel is not None:
@@ -404,3 +406,29 @@ def plot_eui_vs_age(df, cz, figsize=(8, 7)):
                   tickfontsize=16, labelfontsize=16)
     
     return
+
+
+def plot_num_bldg_vs_time(df, field, list_iou=None,
+                          figsize=(8, 6), **kwargs):
+    fig = plt.figure(figsize=figsize)
+    # Plot by IOUs
+    if list_iou:
+        for i, iou in enumerate(list_iou):
+            ind = df[('cis', 'iou')].str.contains(iou)
+            num_bldg = df[field][ind].notnull().sum()
+            x = pd.to_datetime(num_bldg.index)
+            plt.plot(x, num_bldg,
+                     linewidth=3, color=colors[i * 2 + 1],
+                     label=iou.upper())
+    # Plot all
+    num_bldg = df[field].notnull().sum()
+    x = pd.to_datetime(num_bldg.index)
+    plt.plot(x, num_bldg,
+             linewidth=4, color='k',
+             label='All')
+
+    setproperties(xlabel='Year',
+                  ylabel='Number of building\nwith billing data',
+                  legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
+                  fontsize=20, legendfontsize=16, **kwargs)
+    return fig, plt.gca()
