@@ -142,7 +142,7 @@ def compute_EUI(df, fuel='tot'):
     else:
         raise ValueError('{} not supported'.format(fuel))
     field_name = 'EUI_' + fuel
-    eui = total_energy.div(df['cis']['Rentable Building Area'], axis=0)
+    eui = total_energy.div(df['cis']['building_area'], axis=0)
     eui = pd.concat({field_name: eui}, axis=1)
     return pd.concat([df, eui], axis=1)
 
@@ -220,7 +220,7 @@ def compute_all_annual_totals(df, field):
     return df
 
 
-def compute_trend(df, field, year_range, as_series=False):
+def compute_trend(df, field, year_range, min_sample=2, as_series=False):
     # To be completed
     start_year = int(year_range[0])
     end_year = int(year_range[1])
@@ -229,7 +229,8 @@ def compute_trend(df, field, year_range, as_series=False):
     x = np.array([year for year in range(start_year, end_year + 1)])
     y = df['summary'][list_col]
     # Fit
-    coeff = pd.DataFrame(y.apply(_fit_row, axis=1, x=x).tolist())
+    coeff = pd.DataFrame(y.apply(_fit_row, axis=1,
+                                 x=x, min_sample=min_sample).tolist())
     col_prefix = field + '_fit_' + str(start_year) + '_' + str(end_year)
     coeff = coeff.rename(columns={0: col_prefix + '_slope',
                                   1: col_prefix + '_incpt'})
@@ -241,9 +242,12 @@ def compute_trend(df, field, year_range, as_series=False):
         return pd.concat([df, coeff], axis=1)
 
 
-def _fit_row(y, x):
+def _fit_row(y, x, min_sample=2):
     mask = ~np.isnan(y)
-    x_masked = x[mask]
-    y_masked = y[mask]
-    result = linregress(x_masked, y_masked)
-    return result.slope, result.intercept
+    if mask.sum() >= min_sample:
+        x_masked = x[mask]
+        y_masked = y[mask]
+        result = linregress(x_masked, y_masked)
+        return result.slope, result.intercept
+    else:
+        return (np.nan, np.nan)
