@@ -128,13 +128,36 @@ def _get_days_in_months(start_date, end_date, n_months, list_yr_mo):
     return np.array(days_in_months)
 
 
+# Trick to do the following:
+# 1. when E and G are both present in a given month, return E + G
+# 2. when only E is present in a given month, return:
+#    (a) np.nan when the G is present in any other months for the same building
+#    (b) E when the G is not present in any other months for the same building
+# 3. when only G is present in a given month, return:
+#    (a) np.nan when the E is present in any other months for the same building
+#    (b) G when the E is not present in any other months for the same building
+def _masked_add(elec, gas):
+    # Define mask for electric according to rules above
+    all_zeros_elec = ~elec.notnull().any(axis=1)
+    mask_elec = elec.notnull().replace({True: 1, False: np.nan})
+    mask_elec[all_zeros_elec] = 1
+    # Define mask for gas according to rules above
+    all_zeros_gas = ~gas.notnull().any(axis=1)
+    mask_gas = gas.notnull().replace({True: 1, False: np.nan})
+    mask_gas[all_zeros_gas] = 1
+    # Add and mask
+    total = elec.add(gas, fill_value=0)
+    total = total.multiply(mask_elec).multiply(mask_gas)
+    return total
+
+
 def compute_EUI(df, fuel='tot'):
     kWh_to_kBTU = 3.41214
     therms_to_kBTU = 100
     if fuel == 'tot':
         elec_kbtu = df['kWh'] * kWh_to_kBTU
         gas_kbtu = df['Therms'] * therms_to_kBTU
-        total_energy = elec_kbtu.add(gas_kbtu, fill_value=0)
+        total_energy = _masked_add(elec_kbtu, gas_kbtu)
     elif fuel == 'elec':
         total_energy = df['kWh'] * kWh_to_kBTU
     elif fuel == 'gas':
