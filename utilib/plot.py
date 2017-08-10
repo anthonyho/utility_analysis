@@ -127,45 +127,32 @@ def setproperties(fig=None, ax=None, figsize=None,
         ax.set_ylim((-ylim_abs, ylim_abs))
 
 
-def plot_heatmap_type_cz(df, types, cz, value,
+def plot_heatmap_type_cz(df, list_types, list_cz, value,
                          func='mean', q=0.95,
-                         figsize=(6, 3), cbar_label=None):
-    # Extract rows from the specified property types
-    ind = pd.Series([False] * len(df))
-    for type_tuple in types:
-        property_type = type_tuple[0]
-        secondary_type = type_tuple[1]
-        in_type = ((df[('cis', 'PropertyType')] == property_type) &
-                   (df[('cis', 'Secondary Type')] == secondary_type))
-        ind = ind | in_type
-    # Extract rows from the specified climate zones
-    cz = [str(i) for i in cz]
-    ind = ind & df[('cis', 'cz')].isin(cz)
-    # Extract rows
-    data = df.loc[ind,
-                  [('cis', 'cz'),
-                   ('cis', 'PropertyType'),
-                   ('cis', 'Secondary Type'),
-                   value]
-                  ]
+                         figsize=(7, 6), cbar_label=None):
+    # Extract rows from the specified property types and climate zones
+    list_cz = [str(cz) for cz in list_cz]
+    ind = (df[('cis', 'building_type')].isin(list_types) &
+           df[('cis', 'cz')].isin(list_cz))
+
+    # Extract rows and columns
+    data = df.loc[ind, [('cis', 'cz'), ('cis', 'building_type'), value]]
     # Process df for output
     data.columns = data.columns.droplevel()
-    data['Property type'] = data['PropertyType']+' - '+data['Secondary Type']
-    data = data.drop('PropertyType', axis=1)
-    data = data.drop('Secondary Type', axis=1)
     data['cz'] = data['cz'].astype(int)
 
     # Compute
-    data_grouped = data.groupby(['Property type', 'cz'])
+    data_grouped = data.groupby(['building_type', 'cz'])
     if func == 'mean':
         summary = data_grouped.mean().reset_index()
     elif func == 'percentile':
         summary = data_grouped.quantile(q).reset_index()
 
     # Reshape
-    summary = summary.pivot(index='Property type',
+    summary = summary.pivot(index='building_type',
                             columns='cz',
                             values=value[1])
+    summary = summary.reindex(index=list_types)
 
     # Plot
     fig = plt.figure(figsize=figsize)
@@ -174,15 +161,16 @@ def plot_heatmap_type_cz(df, types, cz, value,
     # Define cbar label
     if cbar_label is None:
         if func == 'mean':
-            cbar_label = 'Average annual EUI\n(kBtu/sq. ft.)'
+            cbar_label = 'Mean of average annual EUI\n(kBtu/sq. ft.)'
         elif func == 'percentile':
-            text = '{:d}th percentile annual EUI\n(kBtu/sq. ft.)'
+            text = '{:d}th percentile of average annual EUI\n(kBtu/sq. ft.)'
             cbar_label = text.format(int(q * 100))
 
     sns.heatmap(summary,
-                ax=ax_hm, cbar_ax=ax_cb, cbar_kws={'label': cbar_label})
+                ax=ax_hm, cmap='YlOrRd',
+                cbar_ax=ax_cb, cbar_kws={'label': cbar_label})
     setproperties(ax=ax_hm,
-                  xlabel='Climate zone', ylabel='Property type',
+                  xlabel='Climate zone', ylabel='Building type',
                   tickfontsize=16, labelfontsize=16, tight=False)
     setproperties(ax=ax_cb,
                   fontsize=16, tight=False)
@@ -428,7 +416,7 @@ def plot_num_bldg_vs_time(df, field, list_iou=None,
              label='All')
 
     setproperties(xlabel='Year',
-                  ylabel='Number of building\nwith billing data',
+                  ylabel='Number of buildings\nwith billing data',
                   legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
                   fontsize=20, legendfontsize=16, **kwargs)
     return fig, plt.gca()
