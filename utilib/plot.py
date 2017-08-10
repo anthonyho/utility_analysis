@@ -6,6 +6,7 @@ Python module for plotting utility data
 
 
 import numpy as np
+from scipy import stats
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -127,6 +128,32 @@ def setproperties(fig=None, ax=None, figsize=None,
         ax.set_ylim((-ylim_abs, ylim_abs))
 
 
+def plot_num_bldg_vs_time(df, field, list_iou=None,
+                          figsize=(8, 6), **kwargs):
+    fig = plt.figure(figsize=figsize)
+    # Plot by IOUs
+    if list_iou:
+        for i, iou in enumerate(list_iou):
+            ind = df[('cis', 'iou')].str.contains(iou)
+            num_bldg = df[field][ind].notnull().sum()
+            x = pd.to_datetime(num_bldg.index)
+            plt.plot(x, num_bldg,
+                     linewidth=3, color=colors[i * 2 + 1],
+                     label=iou.upper())
+    # Plot all
+    num_bldg = df[field].notnull().sum()
+    x = pd.to_datetime(num_bldg.index)
+    plt.plot(x, num_bldg,
+             linewidth=4, color='k',
+             label='All')
+
+    setproperties(xlabel='Year',
+                  ylabel='Number of buildings\nwith billing data',
+                  legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
+                  fontsize=20, legendfontsize=16, **kwargs)
+    return fig, plt.gca()
+
+
 # Plot heatmap with building types as rows and climate zone as columns
 def plot_heatmap_type_cz(df, list_types, list_cz, value,
                          func='mean', q=0.95,
@@ -165,7 +192,7 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
         if 'fit' in value[1]:
             label_suffix = 'change in annual EUI\n(kBtu/ft2/year)'
         elif 'avg' in value[1]:
-            label_suffix = 'avaerage annual EUI\n(kBtu/ft2)'
+            label_suffix = 'average annual EUI\n(kBtu/ft2)'
         else:
             label_suffix = ''
         if func == 'mean':
@@ -194,8 +221,8 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
     return fig, ax_hm, ax_cb
 
 
-def plot_box(df, by, selection, value,
-             min_sample_size=5, figsize=None, xlim=None):
+def plot_box(df, by, selection, value, min_sample_size=5,
+             figsize=None, xlim=None, xlabel=None):
     # Extract rows from the specified property types and climate zones
     selection = str(selection)
     ind = (df[('cis', by)] == selection)
@@ -229,21 +256,25 @@ def plot_box(df, by, selection, value,
     else:
         order = None
 
+    # Define xlabel
+    if xlabel is None:
+        if 'fit' in value[1]:
+            xlabel = 'Change in annual EUI from 2009-2015\n(kBtu/ft2/year)'
+        elif 'avg' in value[1]:
+            xlabel = 'Average annual EUI from 2009-2015 \n(kBtu/ft2)'
+
     # Plot
     if figsize is None:
         height = len(ind_pf)
-        figsize = (8, height * 0.6)
+        figsize = (8, height * 0.4)
     fig = plt.figure(figsize=figsize)
     ax = sns.boxplot(x=value[1], y=y, data=data,
                      order=order,
                      orient='h', color=colors[8])
 
     setproperties(ax=ax,
-                  xlabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
-                  ylabel=ylabel,
-                  title=title,
-                  xlim=xlim,
-                  tickfontsize=16, labelfontsize=16, tight=False)
+                  xlabel=xlabel, ylabel=ylabel, title=title,
+                  xlim=xlim, tickfontsize=16, labelfontsize=16, tight=False)
 
     return fig, ax
 
@@ -292,7 +323,10 @@ def plot_building_avg_monthly(bills, info, figsize=(6, 5)):
     return fig
 
 
-def plot_building_avg_annual(bills, info, figsize=(6, 4)):
+#def plot_
+
+
+def _parse_building_info(bills, info):
     if isinstance(info, dict):
         address = info['address'].upper()
         city = info['city'].upper()
@@ -300,37 +334,54 @@ def plot_building_avg_annual(bills, info, figsize=(6, 4)):
         ind = ((bills[('cis', 'address')] == address) &
                (bills[('cis', 'city')] == city) &
                (bills[('cis', 'zip')] == zipcode))
-        full_addr = ',' .join([info['address'], info['city'], zipcode])  # to fix
+        full_addr = ', ' .join([info['address'], info['city'], zipcode])  # to fix cases
     else:
         ind = (bills[('cis', 'PropertyID')] == str(info))
-        full_addr = str(info)   # to fix
-
+        full_addr = str(info)                                             # to fix for actual address
     building = bills[ind]
-    property_type = building[('cis', 'PropertyType')].iloc[0]
-    secondary_type = building[('cis', 'Secondary Type')].iloc[0]
-    cz = building[('cis', 'cz')].iloc[0]
+    building_type = building[('cis', 'building_type')].iloc[0]
+    cz = str(building[('cis', 'cz')].iloc[0])
+    return building, full_addr, building_type, cz
 
-    group_ind = ((bills[('cis', 'PropertyType')] == property_type) &
-                 (bills[('cis', 'Secondary Type')] == secondary_type) &
+
+def plot_bldg_hist(bills, info, value, histrange=None,
+                   figsize=(6, 5), xlabel=None):
+    # Parse building info
+    building, full_addr, building_type, cz = _parse_building_info(bills, info)
+    # Get group
+    group_ind = ((bills[('cis', 'building_type')] == building_type) &
                  (bills[('cis', 'cz')] == cz))
     group = bills[group_ind]
 
-    building_eui = building['summary']['EUI_tot_avg_2009_2015'].iloc[0]
-    group_eui = group['summary']['EUI_tot_avg_2009_2015']
+    building_eui = building[value].iloc[0]
+    group_eui = group[value]
     group_eui = group_eui[group_eui.notnull()]
     group_eui_mean = group_eui.mean()
+    percentile = stats.percentileofscore(group_eui, building_eui)
+
+    # Define xlabel and title
+    if xlabel is None:
+        if 'fit' in value[1]:
+            xlabel = 'Change in annual EUI from 2009-2015\n(kBtu/ft2/year)'
+        elif 'avg' in value[1]:
+            xlabel = 'Average annual EUI from 2009-2015 \n(kBtu/ft2)'
+    title = full_addr + '\nType = ' + building_type + ', CZ = ' + cz
 
     fig = plt.figure(figsize=figsize)
-    #num_bins = min(20, int(np.ceil(len(group_eui) / 3)))
-    ax = sns.distplot(group_eui)
+    ax = plt.gca()
+    # num_bins = min(20, int(np.ceil(len(group_eui) / 3)))                  # to fix
+    ax = sns.distplot(group_eui,
+                      hist_kws={'range': histrange},
+                      kde_kws={'clip': histrange})
     ylim = ax.get_ylim()
     ax.plot([building_eui, building_eui], ylim, color='r', linewidth=2)
     ax.plot([group_eui_mean, group_eui_mean], ylim, color='b', linewidth=2)
+    ax.text(building_eui, ylim[1] * 1.05, '{:.1f}%'.format(percentile),
+            ha="center", fontsize=16)
 
-    setproperties(xlabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
-                  ylabel='Density',
-                  title='Building: ' + full_addr + '\nType = ' + property_type + ' - ' + secondary_type + ', CZ = ' + str(cz),
-                  tickfontsize=16, labelfontsize=16)
+    setproperties(xlabel=xlabel, ylabel='Density', title=title,
+                  ylim=(ylim[0], ylim[1] * 1.15),
+                  tickfontsize=18, labelfontsize=18)
 
     return fig, ax
 
@@ -358,31 +409,5 @@ def plot_eui_vs_age(df, cz, figsize=(8, 7)):
                   ylabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
                   title='CZ = ' + str(cz),
                   tickfontsize=16, labelfontsize=16)
-    
+
     return
-
-
-def plot_num_bldg_vs_time(df, field, list_iou=None,
-                          figsize=(8, 6), **kwargs):
-    fig = plt.figure(figsize=figsize)
-    # Plot by IOUs
-    if list_iou:
-        for i, iou in enumerate(list_iou):
-            ind = df[('cis', 'iou')].str.contains(iou)
-            num_bldg = df[field][ind].notnull().sum()
-            x = pd.to_datetime(num_bldg.index)
-            plt.plot(x, num_bldg,
-                     linewidth=3, color=colors[i * 2 + 1],
-                     label=iou.upper())
-    # Plot all
-    num_bldg = df[field].notnull().sum()
-    x = pd.to_datetime(num_bldg.index)
-    plt.plot(x, num_bldg,
-             linewidth=4, color='k',
-             label='All')
-
-    setproperties(xlabel='Year',
-                  ylabel='Number of buildings\nwith billing data',
-                  legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
-                  fontsize=20, legendfontsize=16, **kwargs)
-    return fig, plt.gca()
