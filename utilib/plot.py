@@ -279,53 +279,6 @@ def plot_box(df, by, selection, value, min_sample_size=5,
     return fig, ax
 
 
-def plot_building_avg_monthly(bills, info, figsize=(6, 5)):
-    if isinstance(info, dict):
-        address = info['address'].upper()
-        city = info['city'].upper()
-        zipcode = str(info['zip'])[0:5]
-        ind = ((bills[('cis', 'address')] == address) &
-               (bills[('cis', 'city')] == city) &
-               (bills[('cis', 'zip')] == zipcode))
-        full_addr = ',' .join([info['address'], info['city'], zipcode])  # to fix
-    else:
-        ind = (bills[('cis', 'PropertyID')] == str(info))
-        full_addr = str(info)   # to fix
-
-    building = bills[ind]
-    property_type = building[('cis', 'PropertyType')].iloc[0]
-    secondary_type = building[('cis', 'Secondary Type')].iloc[0]
-    cz = building[('cis', 'cz')].iloc[0]
-
-    group_ind = ((bills[('cis', 'PropertyType')] == property_type) &
-                 (bills[('cis', 'Secondary Type')] == secondary_type) &
-                 (bills[('cis', 'cz')] == cz))
-    group = bills[group_ind]
-
-    bldg_trace = building['EUI_tot_mo_avg_2009_2015'].iloc[0]
-    group_traces = group['EUI_tot_mo_avg_2009_2015']
-    group_mean_trace = group['EUI_tot_mo_avg_2009_2015'].mean()
-
-    months = [int(mo) for mo in bldg_trace.index]
-
-    fig = plt.figure(figsize=figsize)
-    for (i, row) in group_traces.iterrows():
-        plt.plot(months, row, color='0.7')
-    plt.plot(months, bldg_trace, color='r', linewidth=3)
-    plt.plot(months, group_mean_trace, color='b', linewidth=3)
-    plt.xticks(months)
-
-    setproperties(xlabel='Month',
-                  ylabel='Average monthly EUI\nfrom 2009-2015\n(kBtu/sq. ft.)',
-                  title='Building: ' + full_addr + '\nType = ' + property_type + ' - ' + secondary_type + ', CZ = ' + str(cz),
-                  tickfontsize=16, labelfontsize=16)
-
-    return fig
-
-
-#def plot_
-
-
 def _parse_building_info(bills, info):
     if isinstance(info, dict):
         address = info['address'].upper()
@@ -374,14 +327,129 @@ def plot_bldg_hist(bills, info, value, histrange=None,
                       hist_kws={'range': histrange},
                       kde_kws={'clip': histrange})
     ylim = ax.get_ylim()
-    ax.plot([building_eui, building_eui], ylim, color='r', linewidth=2)
-    ax.plot([group_eui_mean, group_eui_mean], ylim, color='b', linewidth=2)
+    ax.plot([building_eui, building_eui], ylim, color='r', linewidth=2,
+            label='Current building')
+    ax.plot([group_eui_mean, group_eui_mean], ylim, color='b', linewidth=2,
+            label='Group average')
     ax.text(building_eui, ylim[1] * 1.05, '{:.1f}%'.format(percentile),
             ha="center", fontsize=16)
 
     setproperties(xlabel=xlabel, ylabel='Density', title=title,
                   ylim=(ylim[0], ylim[1] * 1.15),
-                  tickfontsize=18, labelfontsize=18)
+                  legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
+                  tickfontsize=18, labelfontsize=18, legendfontsize=16)
+
+    return fig, ax
+
+
+def plot_bldg_avg_monthly(bills, info, fuel, year_range=None,
+                          figsize=(6, 5), ylabel=None):
+    # Parse building info
+    building, full_addr, building_type, cz = _parse_building_info(bills, info)
+
+    if isinstance(fuel, list):
+        list_fuel = fuel
+    elif fuel == 'all':
+        list_fuel = ['gas', 'elec', 'tot']
+    else:
+        list_fuel = [fuel]
+
+    # Define labels and title
+    if ylabel is None:
+        ylabel = 'Average monthly EUI\nfrom 2009-2015\n(kBtu/sq. ft.)'
+    title = full_addr + '\nType = ' + building_type + ', CZ = ' + cz
+
+    fig = plt.figure(figsize=figsize)
+    for fuel in list_fuel:
+        _plot_bldg_avg_monthly_fuel(building, fuel, year_range)
+
+    setproperties(xlabel='Month', ylabel=ylabel, title=title, xlim=(1, 12),
+                  legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
+                  tickfontsize=16, labelfontsize=16, legendfontsize=16)
+
+    return fig, plt.gca()
+
+
+def _plot_bldg_avg_monthly_fuel(building, fuel, year_range=None):
+    #
+    field = 'EUI_' + fuel
+    bldg_all_trace = building[field].copy()
+    list_yr_mo = [tuple(yr_mo.split('-')) for yr_mo in bldg_all_trace.columns]
+    bldg_all_trace.columns = pd.MultiIndex.from_tuples(list_yr_mo)
+    #
+    # Get only data from the year if specified
+    if year_range:
+        start_year = int(year_range[0])
+        end_year = int(year_range[1])
+        list_year = [str(year) for year in range(start_year, end_year + 1)]
+        field_avg_mo = field + '_mo_avg_' + str(start_year) + '_' + str(end_year)
+    else:
+        field_avg_mo = field + '_mo_avg'
+
+    bldg_mean_trace = building[field_avg_mo].iloc[0]
+
+    # Define labels and title
+    months = [int(mo) for mo in bldg_mean_trace.index]
+
+    if fuel == 'tot':
+        color_i = 0
+    elif fuel == 'elec':
+        color_i = 2
+    elif fuel == 'gas':
+        color_i = 4
+
+    min_alpha = 0.2
+    for i, year in enumerate(list_year):
+        curr_yr_trace = bldg_all_trace[year].iloc[0]
+        alpha = (1 - min_alpha) / len(list_year) * i + min_alpha
+        plt.plot(months, curr_yr_trace,
+                 color=colors[color_i], alpha=alpha, linewidth=2,
+                 label='_nolegend_')
+    plt.plot(months, bldg_mean_trace,
+             color=colors[color_i + 1], linewidth=4, label=fuel)
+    plt.xticks(months)
+
+
+
+def plot_bldg_avg_monthly_vs_group(bills, info, value, mean_value,        # to fix
+                                   figsize=(6, 5), ylabel=None):
+    # Parse building info
+    building, full_addr, building_type, cz = _parse_building_info(bills, info)
+    # Get group
+    group_ind = ((bills[('cis', 'building_type')] == building_type) &
+                 (bills[('cis', 'cz')] == cz))
+    group = bills[group_ind]
+
+    building_eui = building[mean_value].iloc[0]
+    group_eui = group[mean_value]
+    group_eui = group_eui[group_eui.notnull()]
+    percentile = stats.percentileofscore(group_eui, building_eui)
+
+    bldg_trace = building[value].iloc[0]
+    group_traces = group[value]
+    group_mean_trace = group[value].mean()
+
+    # Define labels and title
+    months = [int(mo) for mo in bldg_trace.index]
+    if ylabel is None:
+        ylabel = 'Average monthly EUI\nfrom 2009-2015\n(kBtu/sq. ft.)'
+    title = full_addr + '\nType = ' + building_type + ', CZ = ' + cz
+
+    fig = plt.figure(figsize=figsize)
+    for (i, row) in group_traces.iterrows():
+        plt.plot(months, row, color='0.9', label='_nolegend_')
+    plt.plot(months, bldg_trace, color='r', linewidth=3,
+             label='Current building')
+    plt.plot(months, group_mean_trace, color='b', linewidth=3,
+             label='Group average')
+    plt.xticks(months)
+    ax = plt.gca()
+    ax.text(12.2, bldg_trace.iloc[-1], '{:.1f}%'.format(percentile),
+            va="center", fontsize=16)
+
+    setproperties(xlabel='Month', ylabel=ylabel, title=title, xlim=(1, 12),
+                  legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
+                  tickfontsize=16, labelfontsize=16, legendfontsize=16)
 
     return fig, ax
 
