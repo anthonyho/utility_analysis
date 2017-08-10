@@ -129,7 +129,8 @@ def setproperties(fig=None, ax=None, figsize=None,
 
 def plot_heatmap_type_cz(df, list_types, list_cz, value,
                          func='mean', q=0.95,
-                         figsize=(7, 6), cbar_label=None):
+                         cmap=None, cbar_label=None,
+                         figsize=(7, 6)):
     # Extract rows from the specified property types and climate zones
     list_cz = [str(cz) for cz in list_cz]
     ind = (df[('cis', 'building_type')].isin(list_types) &
@@ -160,14 +161,28 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
     ax_cb = fig.add_axes([0.76, 0.125, 0.05, 0.755])
     # Define cbar label
     if cbar_label is None:
+        if 'fit' in value[1]:
+            label_suffix = 'change in annual EUI\n(kBtu/ft2/year)'
+        elif 'avg' in value[1]:
+            label_suffix = 'avaerage annual EUI\n(kBtu/ft2)'
+        else:
+            label_suffix = ''
         if func == 'mean':
-            cbar_label = 'Mean of average annual EUI\n(kBtu/sq. ft.)'
+            label_prefix = 'Mean of '
         elif func == 'percentile':
-            text = '{:d}th percentile of average annual EUI\n(kBtu/sq. ft.)'
-            cbar_label = text.format(int(q * 100))
+            label_prefix = '{:d}th percentile of '.format(int(q * 100))
+        else:
+            label_prefix = ''
+        cbar_label = label_prefix + label_suffix
+    # Define colormap
+    if cmap is None:
+        if 'fit' in value[1]:
+            cmap = 'RdYlBu_r'
+        elif 'avg' in value[1]:
+            cmap = 'YlOrRd'
 
     sns.heatmap(summary,
-                ax=ax_hm, cmap='YlOrRd',
+                ax=ax_hm, cmap=cmap,
                 cbar_ax=ax_cb, cbar_kws={'label': cbar_label})
     setproperties(ax=ax_hm,
                   xlabel='Climate zone', ylabel='Building type',
