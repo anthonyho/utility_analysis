@@ -1,17 +1,17 @@
 # Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 8/1/2017
+# Last update 8/10/2017
 """
 Python module for plotting utility data
 """
 
 
-import numpy as np
 from scipy import stats
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 
+# Default colors for plotting
 colors = sns.color_palette('Paired', 12)
 
 
@@ -130,6 +130,7 @@ def setproperties(fig=None, ax=None, figsize=None,
 
 def plot_num_bldg_vs_time(df, field, list_iou=None,
                           figsize=(8, 6), **kwargs):
+    """Plot number of building with consumption data over time"""
     fig = plt.figure(figsize=figsize)
     # Plot by IOUs
     if list_iou:
@@ -146,7 +147,7 @@ def plot_num_bldg_vs_time(df, field, list_iou=None,
     plt.plot(x, num_bldg,
              linewidth=4, color='k',
              label='All')
-
+    # Set miscell properties
     setproperties(xlabel='Year',
                   ylabel='Number of buildings\nwith billing data',
                   legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
@@ -154,39 +155,34 @@ def plot_num_bldg_vs_time(df, field, list_iou=None,
     return fig, plt.gca()
 
 
-# Plot heatmap with building types as rows and climate zone as columns
 def plot_heatmap_type_cz(df, list_types, list_cz, value,
                          func='mean', q=0.95,
                          cmap=None, cbar_label=None,
                          figsize=(7, 6)):
-    # Extract rows from the specified property types and climate zones
+    """Plot heatmap with building types as rows and climate zone as columns"""
+    # Extract rows from the specified building types and climate zones
     list_cz = [str(cz) for cz in list_cz]
     ind = (df[('cis', 'building_type')].isin(list_types) &
            df[('cis', 'cz')].isin(list_cz))
-
-    # Extract rows and columns
+    # Extract rows and columns in the building types and climate zones
     data = df.loc[ind, [('cis', 'cz'), ('cis', 'building_type'), value]]
-    # Process df for output
+    # Process df for next steps
     data.columns = data.columns.droplevel()
     data['cz'] = data['cz'].astype(int)
-
-    # Compute
+    # Compute according to the function specified
     data_grouped = data.groupby(['building_type', 'cz'])
     if func == 'mean':
         summary = data_grouped.mean().reset_index()
     elif func == 'percentile':
         summary = data_grouped.quantile(q).reset_index()
-
-    # Reshape
+    else:
+        summary = data_grouped.apply(func).reset_index()
+    # Reshape to wide form for heatmap
     summary = summary.pivot(index='building_type',
                             columns='cz',
                             values=value[1])
     summary = summary.reindex(index=list_types)
 
-    # Plot
-    fig = plt.figure(figsize=figsize)
-    ax_hm = fig.add_axes([0.125, 0.125, 0.62, 0.755])
-    ax_cb = fig.add_axes([0.76, 0.125, 0.05, 0.755])
     # Define cbar label
     if cbar_label is None:
         if 'fit' in value[1]:
@@ -209,9 +205,14 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
         elif 'avg' in value[1]:
             cmap = 'YlOrRd'
 
+    # Plot
+    fig = plt.figure(figsize=figsize)
+    ax_hm = fig.add_axes([0.125, 0.125, 0.62, 0.755])
+    ax_cb = fig.add_axes([0.76, 0.125, 0.05, 0.755])
     sns.heatmap(summary,
                 ax=ax_hm, cmap=cmap,
                 cbar_ax=ax_cb, cbar_kws={'label': cbar_label})
+    # Set miscell properties
     setproperties(ax=ax_hm,
                   xlabel='Climate zone', ylabel='Building type',
                   tickfontsize=16, labelfontsize=16, tight=False)
@@ -223,6 +224,7 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
 
 def plot_box(df, by, selection, value, min_sample_size=5,
              figsize=None, xlim=None, xlabel=None):
+    """Plot boxplot of a particular climate zone or building type"""
     # Extract rows from the specified property types and climate zones
     selection = str(selection)
     ind = (df[('cis', by)] == selection)
