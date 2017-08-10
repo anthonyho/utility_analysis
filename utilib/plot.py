@@ -127,6 +127,7 @@ def setproperties(fig=None, ax=None, figsize=None,
         ax.set_ylim((-ylim_abs, ylim_abs))
 
 
+# Plot heatmap with building types as rows and climate zone as columns
 def plot_heatmap_type_cz(df, list_types, list_cz, value,
                          func='mean', q=0.95,
                          cmap=None, cbar_label=None,
@@ -193,105 +194,55 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
     return fig, ax_hm, ax_cb
 
 
-def plot_box_cz(df, cz, value, min_counts=10, types=None,
-                figsize=None):
-    # Extract rows from the specified property types
-    if types:
-        ind = pd.Series([False] * len(df))
-        for type_tuple in types:
-            property_type = type_tuple[0]
-            secondary_type = type_tuple[1]
-            in_type = ((df[('cis', 'PropertyType')] == property_type) &
-                       (df[('cis', 'Secondary Type')] == secondary_type))
-            ind = ind | in_type
-    else:
-        ind = pd.Series([True] * len(df))
-    # Extract rows from the specified climate zone
-    cz = str(cz)
-    ind = ind & (df[('cis', 'cz')] == cz)
-    data = df.loc[ind,
-                  [('cis', 'PropertyType'),
-                   ('cis', 'Secondary Type'),
-                   value]
-                  ]
+def plot_box(df, by, selection, value,
+             min_sample_size=5, figsize=None, xlim=None):
+    # Extract rows from the specified property types and climate zones
+    selection = str(selection)
+    ind = (df[('cis', by)] == selection)
+    # Extract rows and columns
+    data = df.loc[ind, [('cis', 'cz'), ('cis', 'building_type'), value]]
     # Process df for output
     data.columns = data.columns.droplevel()
-    data['Property type'] = data['PropertyType']+' - '+data['Secondary Type']
-    data = data.drop('PropertyType', axis=1)
-    data = data.drop('Secondary Type', axis=1)
+    data = data.dropna()
+    data['cz'] = data['cz'].astype(int)
+
+    # Define variables
+    if by == 'cz':
+        y = 'building_type'
+        ylabel = 'Building type'
+        title = 'Climate zone ' + selection
+    elif by == 'building_type':
+        y = 'cz'
+        ylabel = 'Climate zone'
+        title = selection
 
     # Cut off
-    if min_counts:
-        counts = data.groupby('Property type').size()
-        types_pf = counts[counts > min_counts].index
+    sample_size = data.groupby(y).size()
+    ind_pf = sample_size[sample_size > min_sample_size].index
     # Select types within min_counts
-    data = data[data['Property type'].isin(types_pf)]
+    data = data[data[y].isin(ind_pf)]
 
     # Get sorted order
-    types_order = data.groupby('Property type').median().sort_values(by=value[1]).index
+    if by == 'cz':
+        median = data.groupby(y).median()
+        order = median.sort_values(by=value[1]).index
+    else:
+        order = None
 
     # Plot
     if figsize is None:
-        height = len(types_pf)  # fix bug when min_counts = 0
+        height = len(ind_pf)
         figsize = (8, height * 0.6)
     fig = plt.figure(figsize=figsize)
-    ax = sns.boxplot(x=value[1], y='Property type', data=data,
-                     order=types_order,
+    ax = sns.boxplot(x=value[1], y=y, data=data,
+                     order=order,
                      orient='h', color=colors[8])
 
     setproperties(ax=ax,
                   xlabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
-                  ylabel='Property type',
-                  title='Climate zone '+cz,
-                  tickfontsize=16, labelfontsize=16, tight=False)
-
-    return fig, ax
-
-
-def plot_box_type(df, type_tuple, value, min_counts=10, cz=None,
-                  figsize=None):  # to fix type name
-    # Extract rows from the specified property type
-    property_type = type_tuple[0]
-    secondary_type = type_tuple[1]
-    ind = ((df[('cis', 'PropertyType')] == property_type) &
-           (df[('cis', 'Secondary Type')] == secondary_type))
-    # Extract rows from the specified climate zones
-    if cz:
-        cz = [str(i) for i in cz]
-        ind = ind & df[('cis', 'cz')].isin(cz)
-    ind = ind & df[('cis', 'cz')].notnull()
-    # Extract rows
-    data = df.loc[ind,
-                  [('cis', 'cz'),
-                   value]
-                  ]
-    # Process df for output
-    data.columns = data.columns.droplevel()
-    data['cz'] = data['cz'].astype(int)
-
-    # Cut off
-    if min_counts:
-        counts = data.groupby('cz').size()
-        cz_pf = counts[counts > min_counts].index
-    # Select types within min_counts
-    data = data[data['cz'].isin(cz_pf)]
-
-    # Get sorted order
-    # types_order = data.groupby('cz').median().sort_values(by=value[1]).index
-
-    # Plot
-    if figsize is None:
-        height = len(cz_pf)  # fix bug when min_counts = 0
-        figsize = (8, height * 0.6)
-    fig = plt.figure(figsize=figsize)
-    ax = sns.boxplot(x=value[1], y='cz', data=data,
-                     # order=types_order,
-                     orient='h', color=colors[10])
-
-    setproperties(ax=ax,
-                  xlabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
-                  ylabel='Climate zone',
-                  title=property_type + ' - ' + secondary_type,
+                  ylabel=ylabel,
+                  title=title,
+                  xlim=xlim,
                   tickfontsize=16, labelfontsize=16, tight=False)
 
     return fig, ax
