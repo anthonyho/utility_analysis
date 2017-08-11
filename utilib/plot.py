@@ -16,6 +16,12 @@ import seaborn as sns
 colors = sns.color_palette('Paired', 12)
 
 
+# Set default translation dictionary for abbr
+terms = {'elec': 'electric',
+         'gas': 'gas',
+         'tot': 'total'}
+
+
 # Handy function for setting commonly used plot modifiers
 def setproperties(fig=None, ax=None, figsize=None,
                   suptitle=None, title=None,
@@ -441,11 +447,11 @@ def _plot_bldg_avg_monthly_fuel_single(building, fuel, year_range=None):
                  color=colors[color_i], alpha=alpha, linewidth=2,
                  label='_nolegend_')
     plt.plot(months, bldg_mean_trace,
-             color=colors[color_i + 1], linewidth=4, label=fuel)
+             color=colors[color_i + 1], linewidth=4, label=terms[fuel].title())
     plt.xticks(months)
 
 
-def plot_bldg_avg_monthly_group(bills, info, value, mean_value,       #fuel='tot', year_range=None,
+def plot_bldg_avg_monthly_group(bills, info, fuel='tot', year_range=None,
                                 figsize=(6, 5), ylabel=None):
     """Plot the average monthly EUI of a building by a specified fuel type
     compared against all other buildings in group"""
@@ -454,14 +460,24 @@ def plot_bldg_avg_monthly_group(bills, info, value, mean_value,       #fuel='tot
     # Get group
     group = get_group(bills, building_type=building_type, cz=cz)
 
-    building_eui = building[mean_value].iloc[0]
-    group_eui = group[mean_value]
+    # Define field name from fuel type and year range
+    if year_range:
+        start_year = str(year_range[0])
+        end_year = str(year_range[1])
+        field_prefix = '_' + str(start_year) + '_' + str(end_year)
+    else:
+        field_prefix = ''
+    field_mean = ('summary', 'EUI_' + fuel + '_avg' + field_prefix)
+    field_avg_mo = 'EUI_' + fuel + '_mo_avg' + field_prefix
+    # Access data
+    building_eui = building[field_mean].iloc[0]
+    group_eui = group[field_mean]
     group_eui = group_eui[group_eui.notnull()]
     percentile = stats.percentileofscore(group_eui, building_eui)
 
-    bldg_trace = building[value].iloc[0]
-    group_traces = group[value]
-    group_mean_trace = group[value].mean()
+    bldg_trace = building[field_avg_mo].iloc[0]
+    group_traces = group[field_avg_mo]
+    group_mean_trace = group[field_avg_mo].mean()
 
     # Define labels and title
     months = [int(mo) for mo in bldg_trace.index]
@@ -469,18 +485,19 @@ def plot_bldg_avg_monthly_group(bills, info, value, mean_value,       #fuel='tot
         ylabel = 'Average monthly EUI\nfrom 2009-2015\n(kBtu/sq. ft.)'
     title = full_addr + '\nType = ' + building_type + ', CZ = ' + cz
 
+    # Plot
     fig = plt.figure(figsize=figsize)
     for (i, row) in group_traces.iterrows():
         plt.plot(months, row, color='0.9', label='_nolegend_')
     plt.plot(months, bldg_trace, color='r', linewidth=3,
-             label='Current building')
+             label='Current building ' + terms[fuel])
     plt.plot(months, group_mean_trace, color='b', linewidth=3,
-             label='Group average')
+             label='Group average ' + terms[fuel])
     plt.xticks(months)
     ax = plt.gca()
     ax.text(12.2, bldg_trace.iloc[-1], '{:.1f}%'.format(percentile),
             va="center", fontsize=16)
-
+    # Set miscel properties
     setproperties(xlabel='Month', ylabel=ylabel, title=title, xlim=(1, 12),
                   legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
                   tickfontsize=16, labelfontsize=16, legendfontsize=16)
