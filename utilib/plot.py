@@ -467,7 +467,7 @@ def plot_bldg_avg_monthly_vs_group(bills, info, value, mean_value,        # to f
     return fig, ax
 
 
-def plot_eui_vs_age(df, cz, figsize=(8, 7)):      # to fix
+def plot_eui_vs_age(df, cz, figsize=(8, 7)):                              # to fix
     data = df[[('cis', 'Year Built'),
                ('cis', 'Year Renovated'),
                ('cis', 'PropertyType'),
