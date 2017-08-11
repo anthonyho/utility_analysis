@@ -309,13 +309,15 @@ def _parse_building_info(bills, info):
 
 def plot_bldg_hist(bills, info, value, histrange=None,
                    figsize=(6, 5), xlabel=None):
+    """Plot histogram of value with line indicating the value of current
+    building """
     # Parse building info
     building, full_addr, building_type, cz = _parse_building_info(bills, info)
-    # Get group
+    # Get building type-climate zone group
     group_ind = ((bills[('cis', 'building_type')] == building_type) &
                  (bills[('cis', 'cz')] == cz))
     group = bills[group_ind]
-
+    # Get values
     building_eui = building[value].iloc[0]
     group_eui = group[value]
     group_eui = group_eui[group_eui.notnull()]
@@ -330,9 +332,10 @@ def plot_bldg_hist(bills, info, value, histrange=None,
             xlabel = 'Average annual EUI from 2009-2015 \n(kBtu/ft2)'
     title = full_addr + '\nType = ' + building_type + ', CZ = ' + cz
 
+    # Plot
     fig = plt.figure(figsize=figsize)
     ax = plt.gca()
-    # num_bins = min(20, int(np.ceil(len(group_eui) / 3)))                  # to fix
+    # num_bins = min(20, int(np.ceil(len(group_eui) / 3)))             # to fix
     ax = sns.distplot(group_eui,
                       hist_kws={'range': histrange},
                       kde_kws={'clip': histrange})
@@ -343,7 +346,7 @@ def plot_bldg_hist(bills, info, value, histrange=None,
             label='Group average')
     ax.text(building_eui, ylim[1] * 1.05, '{:.1f}%'.format(percentile),
             ha="center", fontsize=16)
-
+    # Set miscell properties
     setproperties(xlabel=xlabel, ylabel='Density', title=title,
                   ylim=(ylim[0], ylim[1] * 1.15),
                   legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
