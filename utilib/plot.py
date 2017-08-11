@@ -310,7 +310,7 @@ def _parse_building_info(bills, info):
 def plot_bldg_hist(bills, info, value, histrange=None,
                    figsize=(6, 5), xlabel=None):
     """Plot histogram of value with line indicating the value of current
-    building """
+    building"""
     # Parse building info
     building, full_addr, building_type, cz = _parse_building_info(bills, info)
     # Get building type-climate zone group
@@ -357,25 +357,26 @@ def plot_bldg_hist(bills, info, value, histrange=None,
 
 def plot_bldg_avg_monthly(bills, info, fuel, year_range=None,
                           figsize=(6, 5), ylabel=None):
+    """Plot the average monthly EUI of a building by specified fuel types"""
     # Parse building info
     building, full_addr, building_type, cz = _parse_building_info(bills, info)
-
+    # Define fuel types
     if isinstance(fuel, list):
         list_fuel = fuel
     elif fuel == 'all':
         list_fuel = ['gas', 'elec', 'tot']
     else:
         list_fuel = [fuel]
-
-    # Define labels and title
+    # Define label and title
     if ylabel is None:
         ylabel = 'Average monthly EUI\nfrom 2009-2015\n(kBtu/sq. ft.)'
     title = full_addr + '\nType = ' + building_type + ', CZ = ' + cz
 
+    # Plot
     fig = plt.figure(figsize=figsize)
     for fuel in list_fuel:
         _plot_bldg_avg_monthly_fuel(building, fuel, year_range)
-
+    # Set miscell properties
     setproperties(xlabel='Month', ylabel=ylabel, title=title, xlim=(1, 12),
                   legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
                   tickfontsize=16, labelfontsize=16, legendfontsize=16)
@@ -384,26 +385,26 @@ def plot_bldg_avg_monthly(bills, info, fuel, year_range=None,
 
 
 def _plot_bldg_avg_monthly_fuel(building, fuel, year_range=None):
-    #
+    """Plot the average monthly EUI of a building by a specified fuel type"""
+    # Extract yearly trace of the building and transform to multi-index df
     field = 'EUI_' + fuel
     bldg_all_trace = building[field].copy()
     list_yr_mo = [tuple(yr_mo.split('-')) for yr_mo in bldg_all_trace.columns]
     bldg_all_trace.columns = pd.MultiIndex.from_tuples(list_yr_mo)
-    #
-    # Get only data from the year if specified
+    # Extract the average monthly trace of the building
     if year_range:
         start_year = int(year_range[0])
         end_year = int(year_range[1])
         list_year = [str(year) for year in range(start_year, end_year + 1)]
-        field_avg_mo = field + '_mo_avg_' + str(start_year) + '_' + str(end_year)
+        field_prefix = str(start_year) + '_' + str(end_year)
+        field_avg_mo = field + '_mo_avg_' + field_prefix
     else:
         field_avg_mo = field + '_mo_avg'
-
     bldg_mean_trace = building[field_avg_mo].iloc[0]
 
-    # Define labels and title
+    # Define label and colors
     months = [int(mo) for mo in bldg_mean_trace.index]
-
+    min_alpha = 0.2
     if fuel == 'tot':
         color_i = 0
     elif fuel == 'elec':
@@ -411,7 +412,7 @@ def _plot_bldg_avg_monthly_fuel(building, fuel, year_range=None):
     elif fuel == 'gas':
         color_i = 4
 
-    min_alpha = 0.2
+    # Plot
     for i, year in enumerate(list_year):
         curr_yr_trace = bldg_all_trace[year].iloc[0]
         alpha = (1 - min_alpha) / len(list_year) * i + min_alpha
@@ -421,7 +422,6 @@ def _plot_bldg_avg_monthly_fuel(building, fuel, year_range=None):
     plt.plot(months, bldg_mean_trace,
              color=colors[color_i + 1], linewidth=4, label=fuel)
     plt.xticks(months)
-
 
 
 def plot_bldg_avg_monthly_vs_group(bills, info, value, mean_value,        # to fix
@@ -467,7 +467,7 @@ def plot_bldg_avg_monthly_vs_group(bills, info, value, mean_value,        # to f
     return fig, ax
 
 
-def plot_eui_vs_age(df, cz, figsize=(8, 7)):
+def plot_eui_vs_age(df, cz, figsize=(8, 7)):      # to fix
     data = df[[('cis', 'Year Built'),
                ('cis', 'Year Renovated'),
                ('cis', 'PropertyType'),
