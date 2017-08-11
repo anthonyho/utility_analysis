@@ -1,10 +1,11 @@
 # Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 8/10/2017
+# Last update 8/11/2017
 """
-Python module for plotting utility data
+Python module for plotting customer-level energy consumption data
 """
 
 
+import numpy as np
 from scipy import stats
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -155,6 +156,56 @@ def plot_num_bldg_vs_time(df, field, list_iou=None,
     return fig, plt.gca()
 
 
+def get_group(df, building_type=None, cz=None, other=None):
+    """Function to extract group of specific building type and/or climate
+    zone and/or other attributes"""
+    ind = pd.Series(True, index=df.index)
+    if building_type is not None:
+        if isinstance(building_type, str):
+            building_type = [building_type]
+        ind = ind & (df[('cis', 'building_type')].isin(building_type))
+    if cz is not None:
+        if np.issubdtype(type(cz), np.integer) or isinstance(cz, str):
+            cz = [cz]
+        cz = [str(item) for item in cz]
+        ind = ind & (df[('cis', 'cz')].isin(cz))
+    if other is not None:
+        for key in other:
+            if np.issubdtype(type(other[key]),
+                             np.integer) or isinstance(other[key], str):
+                value = [other[key]]
+            else:
+                value = other[key]
+            value = [str(item) for item in value]
+            ind = ind & df[key].isin(value)
+    return df[ind]
+
+
+def _parse_building_info(bills, info):
+    """Function for parsing building info from either address or propertyID"""
+    # Identify building from address or property ID
+    if isinstance(info, dict):
+        address = info['address'].upper()
+        city = info['city'].upper()
+        zipcode = str(info['zip'])[0:5]
+        ind = ((bills[('cis', 'address')] == address) &
+               (bills[('cis', 'city')] == city) &
+               (bills[('cis', 'zip')] == zipcode))
+        building = bills[ind]
+    else:
+        ind = (bills[('cis', 'PropertyID')] == str(info))
+        building = bills[ind]
+        address = building['cis']['address'].iloc[0]
+        city = building['cis']['city'].iloc[0]
+        zipcode = building['cis']['zip'].iloc[0]
+    # Define full address
+    full_addr = ', ' .join([address.title(), city.title(), zipcode])
+    # Get building type and climate zone
+    building_type = building[('cis', 'building_type')].iloc[0]
+    cz = str(building[('cis', 'cz')].iloc[0])
+    return building, full_addr, building_type, cz
+
+
 def plot_heatmap_type_cz(df, list_types, list_cz, value,
                          func='mean', q=0.95,
                          cmap=None, cbar_label=None,
@@ -162,11 +213,9 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
     """Plot heatmap of value grouped with building types as rows and climate
     zone as columns"""
     # Extract rows from the specified building types and climate zones
-    list_cz = [str(cz) for cz in list_cz]
-    ind = (df[('cis', 'building_type')].isin(list_types) &
-           df[('cis', 'cz')].isin(list_cz))
-    # Extract relevant rows and columns
-    data = df.loc[ind, [('cis', 'cz'), ('cis', 'building_type'), value]]
+    group = get_group(df, building_type=list_types, cz=list_cz)
+    # Extract relevant and columns
+    data = group.loc[:, [('cis', 'cz'), ('cis', 'building_type'), value]]
     # Process df for next steps
     data.columns = data.columns.droplevel()
     data['cz'] = data['cz'].astype(int)
@@ -227,10 +276,9 @@ def plot_box(df, by, selection, value, min_sample_size=5,
              figsize=None, xlim=None, xlabel=None):
     """Plot boxplot of value for a particular climate zone or building type"""
     # Extract rows from the specified building types and climate zones
-    selection = str(selection)
-    ind = (df[('cis', by)] == selection)
+    group = get_group(df, other={('cis', by): selection})
     # Extract relevant rows and columns
-    data = df.loc[ind, [('cis', 'cz'), ('cis', 'building_type'), value]]
+    data = group.loc[:, [('cis', 'cz'), ('cis', 'building_type'), value]]
     # Process df for next steps
     data.columns = data.columns.droplevel()
     data = data.dropna()
@@ -240,7 +288,7 @@ def plot_box(df, by, selection, value, min_sample_size=5,
     if by == 'cz':
         y = 'building_type'
         ylabel = 'Building type'
-        title = 'Climate zone ' + selection
+        title = 'Climate zone ' + str(selection)
     elif by == 'building_type':
         y = 'cz'
         ylabel = 'Climate zone'
@@ -282,41 +330,14 @@ def plot_box(df, by, selection, value, min_sample_size=5,
     return fig, ax
 
 
-def _parse_building_info(bills, info):
-    """Function for parsing building info from either address or propertyID"""
-    # Identify building from address or property ID
-    if isinstance(info, dict):
-        address = info['address'].upper()
-        city = info['city'].upper()
-        zipcode = str(info['zip'])[0:5]
-        ind = ((bills[('cis', 'address')] == address) &
-               (bills[('cis', 'city')] == city) &
-               (bills[('cis', 'zip')] == zipcode))
-        building = bills[ind]
-    else:
-        ind = (bills[('cis', 'PropertyID')] == str(info))
-        building = bills[ind]
-        address = building['cis']['address'].iloc[0]
-        city = building['cis']['city'].iloc[0]
-        zipcode = building['cis']['zip'].iloc[0]
-    # Define full address
-    full_addr = ', ' .join([address.title(), city.title(), zipcode])
-    # Get building type and climate zone
-    building_type = building[('cis', 'building_type')].iloc[0]
-    cz = str(building[('cis', 'cz')].iloc[0])
-    return building, full_addr, building_type, cz
-
-
 def plot_bldg_hist(bills, info, value, histrange=None,
                    figsize=(6, 5), xlabel=None):
     """Plot histogram of value with line indicating the value of current
     building"""
     # Parse building info
     building, full_addr, building_type, cz = _parse_building_info(bills, info)
-    # Get building type-climate zone group
-    group_ind = ((bills[('cis', 'building_type')] == building_type) &
-                 (bills[('cis', 'cz')] == cz))
-    group = bills[group_ind]
+    # Extract rows from the specified building types and climate zones
+    group = get_group(bills, building_type=building_type, cz=cz)
     # Get values
     building_eui = building[value].iloc[0]
     group_eui = group[value]
@@ -355,8 +376,8 @@ def plot_bldg_hist(bills, info, value, histrange=None,
     return fig, ax
 
 
-def plot_bldg_avg_monthly(bills, info, fuel, year_range=None,
-                          figsize=(6, 5), ylabel=None):
+def plot_bldg_avg_monthly_fuel(bills, info, fuel, year_range=None,
+                               figsize=(6, 5), ylabel=None):
     """Plot the average monthly EUI of a building by specified fuel types"""
     # Parse building info
     building, full_addr, building_type, cz = _parse_building_info(bills, info)
@@ -375,7 +396,7 @@ def plot_bldg_avg_monthly(bills, info, fuel, year_range=None,
     # Plot
     fig = plt.figure(figsize=figsize)
     for fuel in list_fuel:
-        _plot_bldg_avg_monthly_fuel(building, fuel, year_range)
+        _plot_bldg_avg_monthly_fuel_single(building, fuel, year_range)
     # Set miscell properties
     setproperties(xlabel='Month', ylabel=ylabel, title=title, xlim=(1, 12),
                   legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
@@ -384,7 +405,7 @@ def plot_bldg_avg_monthly(bills, info, fuel, year_range=None,
     return fig, plt.gca()
 
 
-def _plot_bldg_avg_monthly_fuel(building, fuel, year_range=None):
+def _plot_bldg_avg_monthly_fuel_single(building, fuel, year_range=None):
     """Plot the average monthly EUI of a building by a specified fuel type"""
     # Extract yearly trace of the building and transform to multi-index df
     field = 'EUI_' + fuel
@@ -424,14 +445,14 @@ def _plot_bldg_avg_monthly_fuel(building, fuel, year_range=None):
     plt.xticks(months)
 
 
-def plot_bldg_avg_monthly_vs_group(bills, info, value, mean_value,        # to fix
-                                   figsize=(6, 5), ylabel=None):
+def plot_bldg_avg_monthly_group(bills, info, value, mean_value,       #fuel='tot', year_range=None,
+                                figsize=(6, 5), ylabel=None):
+    """Plot the average monthly EUI of a building by a specified fuel type
+    compared against all other buildings in group"""
     # Parse building info
     building, full_addr, building_type, cz = _parse_building_info(bills, info)
     # Get group
-    group_ind = ((bills[('cis', 'building_type')] == building_type) &
-                 (bills[('cis', 'cz')] == cz))
-    group = bills[group_ind]
+    group = get_group(bills, building_type=building_type, cz=cz)
 
     building_eui = building[mean_value].iloc[0]
     group_eui = group[mean_value]
