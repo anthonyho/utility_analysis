@@ -159,12 +159,13 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
                          func='mean', q=0.95,
                          cmap=None, cbar_label=None,
                          figsize=(7, 6)):
-    """Plot heatmap with building types as rows and climate zone as columns"""
+    """Plot heatmap of value grouped with building types as rows and climate
+    zone as columns"""
     # Extract rows from the specified building types and climate zones
     list_cz = [str(cz) for cz in list_cz]
     ind = (df[('cis', 'building_type')].isin(list_types) &
            df[('cis', 'cz')].isin(list_cz))
-    # Extract rows and columns in the building types and climate zones
+    # Extract relevant rows and columns
     data = df.loc[ind, [('cis', 'cz'), ('cis', 'building_type'), value]]
     # Process df for next steps
     data.columns = data.columns.droplevel()
@@ -224,18 +225,18 @@ def plot_heatmap_type_cz(df, list_types, list_cz, value,
 
 def plot_box(df, by, selection, value, min_sample_size=5,
              figsize=None, xlim=None, xlabel=None):
-    """Plot boxplot of a particular climate zone or building type"""
-    # Extract rows from the specified property types and climate zones
+    """Plot boxplot of value for a particular climate zone or building type"""
+    # Extract rows from the specified building types and climate zones
     selection = str(selection)
     ind = (df[('cis', by)] == selection)
-    # Extract rows and columns
+    # Extract relevant rows and columns
     data = df.loc[ind, [('cis', 'cz'), ('cis', 'building_type'), value]]
-    # Process df for output
+    # Process df for next steps
     data.columns = data.columns.droplevel()
     data = data.dropna()
     data['cz'] = data['cz'].astype(int)
 
-    # Define variables
+    # Define variable and labels
     if by == 'cz':
         y = 'building_type'
         ylabel = 'Building type'
@@ -245,20 +246,20 @@ def plot_box(df, by, selection, value, min_sample_size=5,
         ylabel = 'Climate zone'
         title = selection
 
-    # Cut off
+    # Identify building types/climate zones with minimum sample size
     sample_size = data.groupby(y).size()
     ind_pf = sample_size[sample_size > min_sample_size].index
-    # Select types within min_counts
+    # Select building types/climate zones with minimum sample size
     data = data[data[y].isin(ind_pf)]
 
-    # Get sorted order
+    # Get sorted order of building types
     if by == 'cz':
         median = data.groupby(y).median()
         order = median.sort_values(by=value[1]).index
     else:
         order = None
 
-    # Define xlabel
+    # Define label
     if xlabel is None:
         if 'fit' in value[1]:
             xlabel = 'Change in annual EUI from 2009-2015\n(kBtu/ft2/year)'
@@ -273,7 +274,7 @@ def plot_box(df, by, selection, value, min_sample_size=5,
     ax = sns.boxplot(x=value[1], y=y, data=data,
                      order=order,
                      orient='h', color=colors[8])
-
+    # Set miscell properties
     setproperties(ax=ax,
                   xlabel=xlabel, ylabel=ylabel, title=title,
                   xlim=xlim, tickfontsize=16, labelfontsize=16, tight=False)
