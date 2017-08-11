@@ -283,6 +283,8 @@ def plot_box(df, by, selection, value, min_sample_size=5,
 
 
 def _parse_building_info(bills, info):
+    """Function for parsing building info from either address or propertyID"""
+    # Identify building from address or property ID
     if isinstance(info, dict):
         address = info['address'].upper()
         city = info['city'].upper()
@@ -290,11 +292,16 @@ def _parse_building_info(bills, info):
         ind = ((bills[('cis', 'address')] == address) &
                (bills[('cis', 'city')] == city) &
                (bills[('cis', 'zip')] == zipcode))
-        full_addr = ', ' .join([info['address'], info['city'], zipcode])  # to fix cases
+        building = bills[ind]
     else:
         ind = (bills[('cis', 'PropertyID')] == str(info))
-        full_addr = str(info)                                             # to fix for actual address
-    building = bills[ind]
+        building = bills[ind]
+        address = building['cis']['address'].iloc[0]
+        city = building['cis']['city'].iloc[0]
+        zipcode = building['cis']['zip'].iloc[0]
+    # Define full address
+    full_addr = ', ' .join([address.title(), city.title(), zipcode])
+    # Get building type and climate zone
     building_type = building[('cis', 'building_type')].iloc[0]
     cz = str(building[('cis', 'cz')].iloc[0])
     return building, full_addr, building_type, cz
