@@ -534,7 +534,7 @@ def plot_bldg_full_timetrace(bills, info, fuel='all',
             color_i = 4
         # Extract data
         field = 'EUI_' + fuel
-        trace = bills[field].iloc[0]
+        trace = building[field].iloc[0]
         yr_mo = pd.to_datetime(trace.index)
         plt.plot(yr_mo, trace,
                  color=colors[color_i + 1], linewidth=4,
