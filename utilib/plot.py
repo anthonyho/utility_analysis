@@ -187,20 +187,20 @@ def get_group(df, building_type=None, cz=None, other=None):
     return df[ind]
 
 
-def _parse_building_info(bills, info):
+def _parse_building_info(df, info):
     """Function for parsing building info from either address or propertyID"""
     # Identify building from address or property ID
     if isinstance(info, dict):
         address = info['address'].upper()
         city = info['city'].upper()
         zipcode = str(info['zip'])[0:5]
-        ind = ((bills[('cis', 'address')] == address) &
-               (bills[('cis', 'city')] == city) &
-               (bills[('cis', 'zip')] == zipcode))
-        building = bills[ind]
+        ind = ((df[('cis', 'address')] == address) &
+               (df[('cis', 'city')] == city) &
+               (df[('cis', 'zip')] == zipcode))
+        building = df[ind]
     else:
-        ind = (bills[('cis', 'PropertyID')] == str(info))
-        building = bills[ind]
+        ind = (df[('cis', 'PropertyID')] == str(info))
+        building = df[ind]
         address = building['cis']['address'].iloc[0]
         city = building['cis']['city'].iloc[0]
         zipcode = building['cis']['zip'].iloc[0]
@@ -336,14 +336,14 @@ def plot_box(df, by, selection, value, min_sample_size=5,
     return fig, ax
 
 
-def plot_bldg_hist(bills, info, value, histrange=None,
+def plot_bldg_hist(df, info, value, histrange=None,
                    figsize=(6, 5), xlabel=None):
     """Plot histogram of value with line indicating the value of current
     building"""
     # Parse building info
-    building, full_addr, building_type, cz = _parse_building_info(bills, info)
+    building, full_addr, building_type, cz = _parse_building_info(df, info)
     # Extract rows from the specified building types and climate zones
-    group = get_group(bills, building_type=building_type, cz=cz)
+    group = get_group(df, building_type=building_type, cz=cz)
     # Get values
     building_eui = building[value].iloc[0]
     group_eui = group[value]
@@ -382,11 +382,11 @@ def plot_bldg_hist(bills, info, value, histrange=None,
     return fig, ax
 
 
-def plot_bldg_avg_monthly_fuel(bills, info, fuel='all', year_range=None,
+def plot_bldg_avg_monthly_fuel(df, info, fuel='all', year_range=None,
                                figsize=(6, 5), ylabel=None):
     """Plot the average monthly EUI of a building by specified fuel types"""
     # Parse building info
-    building, full_addr, building_type, cz = _parse_building_info(bills, info)
+    building, full_addr, building_type, cz = _parse_building_info(df, info)
     # Define fuel types
     if isinstance(fuel, list):
         list_fuel = fuel
@@ -451,14 +451,14 @@ def _plot_bldg_avg_monthly_fuel_single(building, fuel, year_range=None):
     plt.xticks(months)
 
 
-def plot_bldg_avg_monthly_group(bills, info, fuel='tot', year_range=None,
+def plot_bldg_avg_monthly_group(df, info, fuel='tot', year_range=None,
                                 figsize=(6, 5), ylabel=None):
     """Plot the average monthly EUI of a building by a specified fuel type
     compared against all other buildings in group"""
     # Parse building info
-    building, full_addr, building_type, cz = _parse_building_info(bills, info)
+    building, full_addr, building_type, cz = _parse_building_info(df, info)
     # Get group
-    group = get_group(bills, building_type=building_type, cz=cz)
+    group = get_group(df, building_type=building_type, cz=cz)
 
     # Define field name from fuel type and year range
     if year_range:
@@ -505,11 +505,11 @@ def plot_bldg_avg_monthly_group(bills, info, fuel='tot', year_range=None,
     return fig, ax
 
 
-def plot_bldg_full_timetrace(bills, info, fuel='all',
+def plot_bldg_full_timetrace(df, info, fuel='all',
                              figsize=(8, 5), ylabel=None):
     """Plot the average monthly EUI of a building by specified fuel types"""
     # Parse building info
-    building, full_addr, building_type, cz = _parse_building_info(bills, info)
+    building, full_addr, building_type, cz = _parse_building_info(df, info)
     # Define fuel types
     if isinstance(fuel, list):
         list_fuel = fuel
