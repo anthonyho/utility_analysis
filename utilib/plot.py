@@ -382,7 +382,7 @@ def plot_bldg_hist(bills, info, value, histrange=None,
     return fig, ax
 
 
-def plot_bldg_avg_monthly_fuel(bills, info, fuel, year_range=None,
+def plot_bldg_avg_monthly_fuel(bills, info, fuel='all', year_range=None,
                                figsize=(6, 5), ylabel=None):
     """Plot the average monthly EUI of a building by specified fuel types"""
     # Parse building info
@@ -505,7 +505,49 @@ def plot_bldg_avg_monthly_group(bills, info, fuel='tot', year_range=None,
     return fig, ax
 
 
-def plot_eui_vs_age(df, cz, figsize=(8, 7)):                              # to fix
+def plot_bldg_full_timetrace(bills, info, fuel='all',
+                             figsize=(8, 5), ylabel=None):
+    """Plot the average monthly EUI of a building by specified fuel types"""
+    # Parse building info
+    building, full_addr, building_type, cz = _parse_building_info(bills, info)
+    # Define fuel types
+    if isinstance(fuel, list):
+        list_fuel = fuel
+    elif fuel == 'all':
+        list_fuel = ['gas', 'elec', 'tot']
+    else:
+        list_fuel = [fuel]
+    # Define label and title
+    if ylabel is None:
+        ylabel = 'Monthly EUI (kBtu/sq. ft.)'
+    title = full_addr + '\nType = ' + building_type + ', CZ = ' + cz
+
+    # Plot
+    fig = plt.figure(figsize=figsize)
+    for fuel in list_fuel:
+        # Define colors
+        if fuel == 'tot':
+            color_i = 0
+        elif fuel == 'elec':
+            color_i = 2
+        elif fuel == 'gas':
+            color_i = 4
+        # Extract data
+        field = 'EUI_' + fuel
+        trace = bills[field].iloc[0]
+        yr_mo = pd.to_datetime(trace.index)
+        plt.plot(yr_mo, trace,
+                 color=colors[color_i + 1], linewidth=4,
+                 label=terms[fuel].title())
+    # Set miscell properties
+    setproperties(xlabel='Year', ylabel=ylabel, title=title,
+                  legend=True, legend_bbox_to_anchor=(1, 1), legendloc=2,
+                  tickfontsize=16, labelfontsize=16, legendfontsize=16)
+
+    return fig, plt.gca()
+
+
+def plot_eui_vs_age(df, cz, figsize=(8, 7)):                           # to fix
     data = df[[('cis', 'Year Built'),
                ('cis', 'Year Renovated'),
                ('cis', 'PropertyType'),
@@ -521,12 +563,13 @@ def plot_eui_vs_age(df, cz, figsize=(8, 7)):                              # to f
 
     fig = plt.figure(figsize=figsize)
     for key, grp in data.groupby('PropertyType'):
-        plt.plot(grp['Year'], grp['EUI_tot_avg_2009_2015'], 'o', label = key, alpha=0.75)
-    plt.legend(loc = 'best')
-    
+        plt.plot(grp['Year'], grp['EUI_tot_avg_2009_2015'],
+                 'o', label=key, alpha=0.75)
+    plt.legend(loc='best')
+
     setproperties(xlabel='Year built / last renovated',
                   ylabel='Average annual EUI from 2009-2015\n(kBtu/sq. ft.)',
                   title='CZ = ' + str(cz),
                   tickfontsize=16, labelfontsize=16)
 
-    return
+    return fig, plt.gca()
