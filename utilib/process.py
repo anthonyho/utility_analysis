@@ -1,21 +1,34 @@
 # Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 8/8/2017
+# Last update 8/15/2017
 """
 Python module for processing utility data
 """
 
 import numpy as np
+from scipy.stats import linregress
 import pandas as pd
 from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
-from scipy.stats import linregress
-#from censusgeocode import CensusGeocode
+from censusgeocode import CensusGeocode
 
 
-#def _get_geocode_single(row):
-#    cg = CensusGeocode()
-    
-#def get_census_()
+def _get_geocode_single(row, state='CA'):
+    address = row['address']
+    city = row['city']
+    zipcode = row['zip']
+    cg = CensusGeocode()
+    cg.address(address, city=city, state=state, zipcode=zipcode)
+    print(address)
+    try:
+        tract_geocode = cg[0]['geographies']['Census Tracts'][0]['GEOID']
+    except (TypeError, KeyError, IndexError):
+        tract_geocode = np.nan
+    return tract_geocode
+
+
+def get_census_tract(df):
+    df['tract_geocode'] = df.apply(_get_geocode_single, axis=1)
+    return df
 
 
 def assign_bldg_type(df, bldg_type_file):
