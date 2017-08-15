@@ -18,8 +18,8 @@ def _get_geocode_single(row, state='CA'):
     zipcode = row['zip']
     cg = CensusGeocode()
     try:
-        cg.address(address, city=city, state=state, zipcode=zipcode)
-        tract_geocode = cg[0]['geographies']['Census Tracts'][0]['GEOID']
+        result = cg.address(address, city=city, state=state, zipcode=zipcode)
+        tract_geocode = result[0]['geographies']['Census Tracts'][0]['GEOID']
     except (TypeError, KeyError, IndexError):
         tract_geocode = np.nan
     return tract_geocode
