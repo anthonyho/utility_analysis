@@ -180,7 +180,7 @@ def read_dmp(file, usecols=None, dtype=None, drop_no_st_num=True,
         index_pf = num_bldg[num_bldg == 1].index
         data = data.set_index(group_keys).loc[index_pf].reset_index()
 
-    return data
+    return data.reset_index(drop=True)
 
 
 def read_costar_multiple(list_files, **kwargs):
@@ -274,7 +274,7 @@ def read_costar(file, usecols=None, dtype=None,
         index_pf = num_bldg[num_bldg == 1].index
         data = data.set_index(group_keys).loc[index_pf].reset_index()
 
-    return data
+    return data.reset_index(drop=True)
 
 
 def _read_cis_scg(cis_file, addr_file, info_file, nrows=None, **kwargs):
@@ -460,7 +460,7 @@ def read_cis(file, iou, usecols=None, dtype=None,
         if col in cis:
             cis[col] = cis[col].map(bool_dict)
 
-    return cis
+    return cis.reset_index(drop=True)
 
 
 def read_bills(file, fuel, iou,
