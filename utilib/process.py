@@ -26,6 +26,7 @@ def _get_geocode_single(row, state='CA'):
 
 
 def get_census_tract(df):
+    df = df.copy()
     df['tract_geocode'] = df.apply(_get_geocode_single, axis=1)
     return df
 
