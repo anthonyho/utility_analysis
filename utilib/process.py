@@ -34,9 +34,12 @@ def get_census_tract(df):
 
 def _get_geocodes_single_chunk(chunk, chunk_id=None, save_chunk=True):
     chunk_dict = chunk.to_dict('records')
-    geocodes = pd.DataFrame(censusbatchgeocoder.geocode(chunk_dict))
-    if save_chunk:
-        geocodes.to_csv(str(chunk_id) + '.csv', index=False)
+    try:
+        geocodes = pd.DataFrame(censusbatchgeocoder.geocode(chunk_dict))
+        if save_chunk:
+            geocodes.to_csv(str(chunk_id) + '.csv', index=False)
+    except ValueError:
+        geocodes = None
     return geocodes
 
 
