@@ -10,6 +10,7 @@ import pandas as pd
 from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
 from censusgeocode import CensusGeocode
+import censusbatchgeocoder
 
 
 def _get_geocode_single(row, state='CA'):
@@ -29,6 +30,26 @@ def get_census_tract(df):
     df = df.copy()
     df['tract_geocode'] = df.apply(_get_geocode_single, axis=1)
     return df
+
+
+def _get_geocodes_batch_single_chunk(chunk, chunk_id=None, save_chunk=True):
+    chunk_dict = chunk.to_dict('records')
+    geocodes = pd.DataFrame(censusbatchgeocoder.geocode(chunk_dict))
+    if save_chunk:
+        geocodes.to_csv(str(chunk_id) + '.csv', index=False)
+    return geocodes
+
+
+def get_geocodes_batch(df, max_chunk_size=1000, save_chunk=True):
+    n_row = len(df)
+    n_chunk = n_row // max_chunk_size + 1
+    list_chunks = np.array_split(df, n_chunk)
+    list_geocodes = []
+    for i, chunk in enumerate(list_chunks):
+        list_geocodes.append(_get_geocodes_batch_single_chunk(chunk, i,
+                                                              save_chunk))
+    df_geocodes = pd.concat(list_geocodes, axis=0, ignore_index=True)
+    return df_geocodes
 
 
 def assign_bldg_type(df, bldg_type_file):
