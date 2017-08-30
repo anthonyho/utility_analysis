@@ -11,6 +11,7 @@ from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
 from censusgeocode import CensusGeocode
 import censusbatchgeocoder
+import os
 
 
 def _get_geocode_single(row, state='CA'):
@@ -32,36 +33,42 @@ def get_census_tract(df):
     return df
 
 
-def _get_geocodes_single_chunk(chunk, chunk_id=None, save_chunk=True):
+def _get_geocodes_single_chunk(chunk, chunk_id=None,
+                               save_chunk=True, chunk_dir='./'):
     chunk_dict = chunk.to_dict('records')
     try:
         geocodes = pd.DataFrame(censusbatchgeocoder.geocode(chunk_dict))
         if save_chunk:
-            geocodes.to_csv(str(chunk_id) + '.csv', index=False)
+            chunk_path = os.path.join(chunk_dir, str(chunk_id) + '.csv')
+            geocodes.to_csv(chunk_path, index=False)
     except ValueError:
         geocodes = None
     return geocodes
 
 
-def get_geocodes_batch(df, max_chunk_size=1000, save_chunk=True, restart=None):
+def get_geocodes_batch(df, max_chunk_size=1000,
+                       save_chunk=True, chunk_dir='./', restart=None):
     n_row = len(df)
     n_chunk = n_row // max_chunk_size + 1
     list_chunks = np.array_split(df, n_chunk)
     list_geocodes = []
     if restart is None:
         for i, chunk in enumerate(list_chunks):
-            geocodes = _get_geocodes_single_chunk(chunk, i, save_chunk)
+            geocodes = _get_geocodes_single_chunk(chunk, i,
+                                                  save_chunk, chunk_dir)
             list_geocodes.append(geocodes)
     else:
         for i, chunk in enumerate(list_chunks):
             if i < restart:
                 try:
-                    geocodes = pd.read_csv(str(i) + '.csv')
+                    chunk_path = os.path.join(chunk_dir, str(i) + '.csv')
+                    geocodes = pd.read_csv(chunk_path)
                 except FileNotFoundError:
                     geocodes = None
                 list_geocodes.append(geocodes)
             else:
-                geocodes = _get_geocodes_single_chunk(chunk, i, save_chunk)
+                geocodes = _get_geocodes_single_chunk(chunk, i,
+                                                      save_chunk, chunk_dir)
                 list_geocodes.append(geocodes)
     df_geocodes = pd.concat(list_geocodes, axis=0, ignore_index=True)
     return df_geocodes
