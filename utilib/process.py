@@ -55,7 +55,10 @@ def get_geocodes_batch(df, max_chunk_size=1000, save_chunk=True, restart=None):
     else:
         for i, chunk in enumerate(list_chunks):
             if i < restart:
-                geocodes = pd.read_csv(str(i) + '.csv')
+                try:
+                    geocodes = pd.read_csv(str(i) + '.csv')
+                except FileNotFoundError:
+                    geocodes = None
                 list_geocodes.append(geocodes)
             else:
                 geocodes = _get_geocodes_single_chunk(chunk, i, save_chunk)
