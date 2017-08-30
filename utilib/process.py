@@ -32,7 +32,7 @@ def get_census_tract(df):
     return df
 
 
-def _get_geocodes_batch_single_chunk(chunk, chunk_id=None, save_chunk=True):
+def _get_geocodes_single_chunk(chunk, chunk_id=None, save_chunk=True):
     chunk_dict = chunk.to_dict('records')
     geocodes = pd.DataFrame(censusbatchgeocoder.geocode(chunk_dict))
     if save_chunk:
@@ -40,14 +40,23 @@ def _get_geocodes_batch_single_chunk(chunk, chunk_id=None, save_chunk=True):
     return geocodes
 
 
-def get_geocodes_batch(df, max_chunk_size=1000, save_chunk=True):
+def get_geocodes_batch(df, max_chunk_size=1000, save_chunk=True, restart=None):
     n_row = len(df)
     n_chunk = n_row // max_chunk_size + 1
     list_chunks = np.array_split(df, n_chunk)
     list_geocodes = []
-    for i, chunk in enumerate(list_chunks):
-        list_geocodes.append(_get_geocodes_batch_single_chunk(chunk, i,
-                                                              save_chunk))
+    if restart is None:
+        for i, chunk in enumerate(list_chunks):
+            geocodes = _get_geocodes_single_chunk(chunk, i, save_chunk)
+            list_geocodes.append(geocodes)
+    else:
+        for i, chunk in enumerate(list_chunks):
+            if i < restart:
+                geocodes = pd.read_csv(str(i) + '.csv')
+                list_geocodes.append(geocodes)
+            else:
+                geocodes = _get_geocodes_single_chunk(chunk, i, save_chunk)
+                list_geocodes.append(geocodes)
     df_geocodes = pd.concat(list_geocodes, axis=0, ignore_index=True)
     return df_geocodes
 
