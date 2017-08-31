@@ -1,7 +1,8 @@
-# Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 8/15/2017
 """
 Python module for processing utility data
+
+Anthony Ho <anthony.ho@energy.ca.gov>
+Last update 8/30/2017
 """
 
 import numpy as np
@@ -9,8 +10,6 @@ from scipy.stats import linregress
 import pandas as pd
 from pandas.tseries.offsets import MonthBegin, MonthEnd, DateOffset
 import calendar
-from censusgeocode import CensusGeocode
-import censusbatchgeocoder
 import os
 
 
@@ -18,7 +17,7 @@ def _get_geocode_single(row, state='CA'):
     address = row['address']
     city = row['city']
     zipcode = row['zip']
-    cg = CensusGeocode()
+    cg = censusgeocode.CensusGeocode()
     try:
         result = cg.address(address, city=city, state=state, zipcode=zipcode)
         tract_geocode = result[0]['geographies']['Census Tracts'][0]['GEOID']
@@ -28,6 +27,7 @@ def _get_geocode_single(row, state='CA'):
 
 
 def get_census_tract(df):
+    globals()['censusgeocode'] = __import__('censusgeocode')
     df = df.copy()
     df['tract_geocode'] = df.apply(_get_geocode_single, axis=1)
     return df
@@ -48,6 +48,7 @@ def _get_geocodes_single_chunk(chunk, chunk_id=None,
 
 def get_geocodes_batch(df, max_chunk_size=1000,
                        save_chunk=True, chunk_dir='./', restart=None):
+    globals()['censusbatchgeocoder'] = __import__('censusbatchgeocoder')
     n_row = len(df)
     n_chunk = n_row // max_chunk_size + 1
     list_chunks = np.array_split(df, n_chunk)
