@@ -1,13 +1,19 @@
-# Anthony Ho <anthony.ho@energy.ca.gov>
-# Last update 7/31/2017
 """
-Python module for reading utility data
+Python module for reading customer-level monthly utility data
+
+Required libraries:
+* numpy (included in Anaconda)
+* pandas (included in Anaconda)
+
+Anthony Ho <anthony.ho@energy.ca.gov>
+Last update 9/1/2017
 """
 
 import numpy as np
 import pandas as pd
 
 
+# Dictionary for mapping possible versions of Yes and No to True and False
 bool_dict = {'Y': True,
              'N': False,
              'y': True,
@@ -17,6 +23,8 @@ bool_dict = {'Y': True,
              '.': np.nan}
 
 
+# Dictionary of regular expressions for mapping non-standardized address
+# components to standard address abbreviations
 addr_dict = {r'\bPKY\b': 'PKWY',
              r'\bALLEY\b': 'ALY',
              r'\bAVENUE\b': 'AVE',
@@ -41,6 +49,21 @@ addr_dict = {r'\bPKY\b': 'PKWY',
 
 
 def _modify_fields(usecols, dtype, badcols):
+    """
+    Internal function to modify names of columns in usecols and dtypes as
+    indicated by badcols
+
+    Parameters:
+    ----------
+    usecols: list
+        list of columns to read from a csv file
+    dtype: dict
+        dictionary where the keys and values indicate the columns and their
+        data type
+    badcols: dict
+        dictionary indicating how the name of the columns are to be changed.
+        Keys are the old column names and values are the new column names
+    """
     for col in badcols:
         usecols = [badcols[col] if uc == col else uc for uc in usecols]
         try:
@@ -51,6 +74,20 @@ def _modify_fields(usecols, dtype, badcols):
 
 
 def _drop_fields(usecols, dtype, dropcols):
+    """
+    Internal function to drop columns in usecols and dtypes as indicated by
+    dropcols
+
+    Parameters:
+    ----------
+    usecols: list
+        list of columns to read from a csv file
+    dtype: dict
+        dictionary where the keys and values indicate the columns and their
+        data type
+    dropcols: list
+        columns to be removed from usecols and dtypes
+    """
     for col in dropcols:
         try:
             usecols.remove(col)
@@ -64,10 +101,30 @@ def _drop_fields(usecols, dtype, dropcols):
 
 
 def _rev_dict(d):
+    """
+    Internal functions to make a dictionary's keys into its values and values
+    into its keys
+
+    Parameters:
+    ----------
+    d: dict
+        dictionary to be reversed
+    """
     return {v: k for k, v in d.items()}
 
 
 def _filter_valid_id(df, col):
+    """
+    Internal function to perform basic checks on the validity of a numeric ID
+    and to remove the non-valid ID.
+
+    Parameters:
+    ----------
+    df: Pandas dataframe
+        dataframe to be filtered
+    col: string
+        name of the column to be checked
+    """
     df = df[(df[col].str.isnumeric().replace({np.nan: False})) &
             (df[col] != '0') &
             (df[col] != 0)]
@@ -75,6 +132,16 @@ def _filter_valid_id(df, col):
 
 
 def pad_digits(x, width):
+    """
+    Function to pad a string into a specific width with leading zeros
+
+    Parameters:
+    ----------
+    x: string
+        string to be padded with leading zeros
+    width: int
+        width of the returned string
+    """
     if pd.notnull(x):
         return '{0:0{1}d}'.format(int(x), width)
     else:
@@ -82,17 +149,53 @@ def pad_digits(x, width):
 
 
 def read_dmp_multiple(list_files, **kwargs):
+    """
+    Function to read multiple DMP files at once and concat them into a single
+    dataframe
+
+    Parameters:
+    ----------
+    list_files: list
+        list of paths to the files to be read
+    **kwargs: additional keyword arguments to pass to read_dmp()
+    """
+    # Read files
     list_data = []
     for file in list_files:
         list_data.append(read_dmp(file, **kwargs))
+    # Combine into single dataframe
     data = pd.concat(list_data,
                      axis=0, join='outer', ignore_index=True)
+    # Drop duplicates if multiple DMP files contain the same address
     data = data.drop_duplicates(subset=['address', 'city', 'zip'])
     return data
 
 
 def read_dmp(file, usecols=None, dtype=None, drop_no_st_num=True,
              abbr_addr=True, filter_multiple=False, nrows=None, **kwargs):
+    """
+    Function to read a DMP file
+
+    Parameters:
+    ----------
+    file: string
+        path to the DMP file to be read
+    usecols: list (default: None)
+        list of columns to be read from the DMP file. If None, it will read
+        from a default list of columns as specified below.
+    dtype: dict (default: None)
+        data types of columns to be read from the DMP file. If None, it will
+        read from the default data types as specified below
+    drop_no_st_num: bool (default: True)
+        get rid of addresses in the DMP data that have no street number
+    abbr_addr: bool (default: True)
+        standardize addresses using standard address abbreviations
+    filter_multiple: bool (default: False)
+        filter buildings that belong to the same address if selected
+    nrows: int (default: None)
+        number of rows to read. If None, read all rows.
+    **kwargs: additional keyword arguments to pass to pd.read_csv()
+    """
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['APN',
@@ -184,6 +287,16 @@ def read_dmp(file, usecols=None, dtype=None, drop_no_st_num=True,
 
 
 def read_costar_multiple(list_files, **kwargs):
+    """
+    Function to read multiple CoStar files at once and concat them into a
+    single dataframe
+
+    Parameters:
+    ----------
+    list_files: list
+        list of paths to the files to be read
+    **kwargs: additional keyword arguments to pass to read_costar()
+    """
     list_data = []
     for file in list_files:
         list_data.append(read_costar(file, **kwargs))
@@ -194,7 +307,28 @@ def read_costar_multiple(list_files, **kwargs):
 
 
 def read_costar(file, usecols=None, dtype=None,
-                abbr_addr=True, nrows=None, filter_multiple=False, **kwargs):
+                abbr_addr=True, filter_multiple=False, nrows=None, **kwargs):
+    """
+    Function to read a CoStar file
+
+    Parameters:
+    ----------
+    file: string
+        path to the DMP file to be read
+    usecols: list (default: None)
+        list of columns to be read from the DMP file. If None, it will read
+        from a default list of columns as specified below.
+    dtype: dict (default: None)
+        data types of columns to be read from the DMP file. If None, it will
+        read from the default data types as specified below
+    abbr_addr: bool (default: True)
+        standardize addresses using standard address abbreviations
+    filter_multiple: bool (default: False)
+        filter buildings that belong to the same address if selected
+    nrows: int (default: None)
+        number of rows to read from file. If None, read all rows.
+    **kwargs: additional keyword arguments to pass to pd.read_csv()
+    """
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['PropertyID',
@@ -278,6 +412,21 @@ def read_costar(file, usecols=None, dtype=None,
 
 
 def _read_cis_scg(cis_file, addr_file, info_file, nrows=None, **kwargs):
+    """
+    Internal function to read commercial CIS file from SCG
+
+    Parameters:
+    ----------
+    cis_file: string
+        path to the SCG CIS file to be read
+    addr_file: string
+        path to the SCG address file to be read
+    info_file: string
+        path to the SCG info file to be read
+    nrows: int (default: None)
+        number of rows to read from file. If None, read all rows.
+    **kwargs: additional keyword arguments to pass to pd.read_csv()
+    """
     # Define columns to read from the CSV file and their datatypes
     usecols_cis = ['BA_ID', 'GNN_ID', 'MTR_ID',
                    'SADDR', 'SCITY', 'SZIP']
@@ -338,6 +487,27 @@ def _read_cis_scg(cis_file, addr_file, info_file, nrows=None, **kwargs):
 
 def read_cis(file, iou, usecols=None, dtype=None,
              abbr_addr=True, nrows=None, **kwargs):
+    """
+    Function to read a commercial CIS file
+
+    Parameters:
+    ----------
+    file: string
+        path to the CIS file to be read
+    iou: string ['pge'|'sce'|'scg'|'sdge']
+        IOU of the CIS
+    usecols: list (default: None)
+        list of columns to be read from the CIS file. If None, it will read
+        from a default list of columns as specified below.
+    dtype: dict (default: None)
+        data types of columns to be read from the CIS file. If None, it will
+        read from the default data types as specified below
+    abbr_addr: bool (default: True)
+        standardize addresses using standard address abbreviations
+    nrows: int (default: None)
+        number of rows to read from file. If None, read all rows.
+    **kwargs: additional keyword arguments to pass to pd.read_csv()
+    """
     # Define default columns to read from the CSV file
     if usecols is None:
         usecols = ['iou', 'fuel',
@@ -465,6 +635,27 @@ def read_cis(file, iou, usecols=None, dtype=None,
 
 def read_bills(file, fuel, iou,
                usecols=None, dtype=None, nrows=None, **kwargs):
+    """
+    Function to read a commercial bills file
+
+    Parameters:
+    ----------
+    file: string
+        path to the bills file to be read
+    fuel: string ['elec'|'gas']
+        fuel type of the bills
+    iou: string ['pge'|'sce'|'scg'|'sdge']
+        IOU of the bills
+    usecols: list (default: None)
+        list of columns to be read from the bills file. If None, it will read
+        from a default list of columns as specified below.
+    dtype: dict (default: None)
+        data types of columns to be read from the bills file. If None, it will
+        read from the default data types as specified below
+    nrows: int (default: None)
+        number of rows to read from file. If None, read all rows.
+    **kwargs: additional keyword arguments to pass to pd.read_csv()
+    """
     # Define default columns to read from the CSV file
     if usecols is None:
         if fuel == 'elec':
@@ -550,7 +741,20 @@ def read_bills(file, fuel, iou,
 
 
 def read_processed_bills(file, multi_index=True, dtype=None):
+    """
+    Function to read a processed commercial bills file
 
+    Parameters:
+    ----------
+    file: string
+        path to the processed bills file to be read
+    multi_index: bool
+        indicate if the processed bills file has multi-index columns or not
+    dtype: dict (default: None)
+        data types of columns to be read from the processed bills file. If
+        None, it will read from the default data types as specified below
+    **kwargs: additional keyword arguments to pass to pd.read_csv()
+    """
     if multi_index:
         header = [0, 1]
     else:
