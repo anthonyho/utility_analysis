@@ -25,6 +25,9 @@ def _get_geocode_single(row, state='CA'):
     Internal function to get the geocode of a single address. Used as part of
     get_census_tract()
 
+    Deprecated - use get_geocodes_batch() and _get_geocodes_single_chunk()
+    instead
+
     Parameters:
     ----------
     row: Pandas series
@@ -55,6 +58,9 @@ def get_census_tract(df):
     """
     Function to get the census tracts for all addresses in a dataframe.
 
+    Deprecated - use get_geocodes_batch() and _get_geocodes_single_chunk()
+    instead
+
     Required library:
     ----------------
     * censusgeocode (have to install separately:
@@ -80,6 +86,31 @@ def get_census_tract(df):
 
 def _get_geocodes_single_chunk(chunk, chunk_id=None,
                                save_chunk=True, chunk_dir='./'):
+    """
+    Internal function to get the geocode of a chunk of many addresses in batch
+    using the Census Geocoding Services API batch service. Used as part of
+    get_geocodes_batch()
+
+    Parameters:
+    ----------
+    chunk: Pandas dataframe
+        small chunk of addresses to match geocodes with. Must contain the
+        fields 'address', 'city', 'zipcode', and 'state'. Limited to 1000 rows
+        in chunk due to the census geocoder API.
+    chunk_id: str or int (default: None)
+        name of the chunk for saving into temporary file if save_chunk is True
+    save_chunk: bool (default: True)
+        save geocoded chunk into temporary file if True. Useful for restarting
+        if function breaks due to API connection timeout
+    chunk_dir: str (default: './')
+        path to the directory for saving the temporary chunk files
+
+    Return:
+    ------
+    geocodes: Pandas dataframe
+        geocode results. See https://github.com/datadesk/python-censusbatchgeocoder
+        for details
+    """
     chunk_dict = chunk.to_dict('records')
     try:
         geocodes = pd.DataFrame(censusbatchgeocoder.geocode(chunk_dict))
@@ -93,16 +124,54 @@ def _get_geocodes_single_chunk(chunk, chunk_id=None,
 
 def get_geocodes_batch(df, max_chunk_size=1000,
                        save_chunk=True, chunk_dir='./', restart=None):
+    """
+    Function to get the census tracts for all addresses in a dataframe using
+    the Census Geocoding Services API batch service
+    https://geocoding.geo.census.gov/geocoder/geographies/addressbatch?form
+
+    Required library:
+    ----------------
+    * censusbatchgeocoder (have to install separately:
+                           https://github.com/datadesk/python-censusbatchgeocoder)
+
+    Parameters:
+    ----------
+    df: Pandas dataframe
+        dataframe to get census tracts with. Must contain the fields 'address',
+        'city', 'zipcode', and 'state'.
+    max_chunk_size: int (default: 1000)
+        max number of rows in a single chunk.  Limited to 1000 rows due to the
+        census geocoder API.
+    save_chunk: bool (default: True)
+        save geocoded chunk into temporary file if True. Useful for restarting
+        if function breaks due to API connection timeout
+    chunk_dir: str (default: './')
+        path to the directory for saving the temporary chunk files
+    restart: int (default: None)
+        restart the geocoding process at a specific chunk if geocoding process
+        breaks due to API connection timeout
+
+    Return:
+    -------
+    df_geocodes : Pandas dataframe
+        geocode results. See https://github.com/datadesk/python-censusbatchgeocoder
+        for details
+    """
     globals()['censusbatchgeocoder'] = __import__('censusbatchgeocoder')
+    # Break df into chunks
     n_row = len(df)
     n_chunk = n_row // max_chunk_size + 1
     list_chunks = np.array_split(df, n_chunk)
+    # Get geocodes
     list_geocodes = []
+    # Start from the beginning if no restart specified
     if restart is None:
         for i, chunk in enumerate(list_chunks):
             geocodes = _get_geocodes_single_chunk(chunk, i,
                                                   save_chunk, chunk_dir)
             list_geocodes.append(geocodes)
+    # Start from restarting point by loading previosuly saved chunks if restart
+    # is specified
     else:
         for i, chunk in enumerate(list_chunks):
             if i < restart:
@@ -116,6 +185,7 @@ def get_geocodes_batch(df, max_chunk_size=1000,
                 geocodes = _get_geocodes_single_chunk(chunk, i,
                                                       save_chunk, chunk_dir)
                 list_geocodes.append(geocodes)
+    # Combine all goecoded chunks into a single dataframe
     df_geocodes = pd.concat(list_geocodes, axis=0, ignore_index=True)
     return df_geocodes
 
