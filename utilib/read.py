@@ -96,7 +96,7 @@ def _drop_fields(usecols, dtype, dropcols):
         data type
     dropcols: list
         columns to be removed from usecols and dtypes
-    
+
     Return:
     ------
     usecols: list
@@ -147,6 +147,11 @@ def _filter_valid_id(df, col):
         dataframe to be filtered
     col: string
         name of the column to be checked
+
+    Return:
+    ------
+    df: Pandas dataframe
+        same as df in input except with rows with non-valid IDs removed
     """
     df = df[(df[col].str.isnumeric().replace({np.nan: False})) &
             (df[col] != '0') &
@@ -164,6 +169,11 @@ def pad_digits(x, width):
         string to be padded with leading zeros
     width: int
         width of the returned string
+
+    Return:
+    -----
+    str
+        input string padded into specific width with leading zeros
     """
     if pd.notnull(x):
         return '{0:0{1}d}'.format(int(x), width)
@@ -181,6 +191,11 @@ def read_dmp_multiple(list_files, **kwargs):
     list_files: list
         list of paths to the files to be read
     **kwargs: additional keyword arguments to pass to read_dmp()
+
+    Return:
+    -----
+    data: Pandas dataframe
+        data from data files loaded as Pandas dataframe
     """
     # Read files
     list_data = []
@@ -218,6 +233,11 @@ def read_dmp(file, usecols=None, dtype=None, drop_no_st_num=True,
     nrows: int (default: None)
         number of rows to read. If None, read all rows.
     **kwargs: additional keyword arguments to pass to pd.read_csv()
+
+    Return:
+    -----
+    data: Pandas dataframe
+        data from data files loaded as Pandas dataframe
     """
     # Define default columns to read from the CSV file
     if usecols is None:
@@ -319,6 +339,11 @@ def read_costar_multiple(list_files, **kwargs):
     list_files: list
         list of paths to the files to be read
     **kwargs: additional keyword arguments to pass to read_costar()
+
+    Return:
+    -----
+    data: Pandas dataframe
+        data from data files loaded as Pandas dataframe
     """
     list_data = []
     for file in list_files:
@@ -351,6 +376,11 @@ def read_costar(file, usecols=None, dtype=None,
     nrows: int (default: None)
         number of rows to read from file. If None, read all rows.
     **kwargs: additional keyword arguments to pass to pd.read_csv()
+
+    Return:
+    -----
+    data: Pandas dataframe
+        data from data files loaded as Pandas dataframe
     """
     # Define default columns to read from the CSV file
     if usecols is None:
@@ -449,6 +479,11 @@ def _read_cis_scg(cis_file, addr_file, info_file, nrows=None, **kwargs):
     nrows: int (default: None)
         number of rows to read from file. If None, read all rows.
     **kwargs: additional keyword arguments to pass to pd.read_csv()
+
+    Return:
+    -----
+    cis: Pandas dataframe
+        cis data from cis files loaded as Pandas dataframe
     """
     # Define columns to read from the CSV file and their datatypes
     usecols_cis = ['BA_ID', 'GNN_ID', 'MTR_ID',
@@ -530,6 +565,11 @@ def read_cis(file, iou, usecols=None, dtype=None,
     nrows: int (default: None)
         number of rows to read from file. If None, read all rows.
     **kwargs: additional keyword arguments to pass to pd.read_csv()
+
+    Return:
+    -----
+    cis: Pandas dataframe
+        cis data from cis files loaded as Pandas dataframe
     """
     # Define default columns to read from the CSV file
     if usecols is None:
@@ -678,6 +718,11 @@ def read_bills(file, fuel, iou,
     nrows: int (default: None)
         number of rows to read from file. If None, read all rows.
     **kwargs: additional keyword arguments to pass to pd.read_csv()
+
+    Return:
+    -----
+    bills: Pandas dataframe
+        billing data from bills files loaded as Pandas dataframe
     """
     # Define default columns to read from the CSV file
     if usecols is None:
@@ -777,6 +822,11 @@ def read_processed_bills(file, multi_index=True, dtype=None):
         data types of columns to be read from the processed bills file. If
         None, it will read from the default data types as specified below
     **kwargs: additional keyword arguments to pass to pd.read_csv()
+
+    Return:
+    -----
+    df: Pandas dataframe
+        processed bills data from data files loaded as Pandas dataframe
     """
     if multi_index:
         header = [0, 1]
