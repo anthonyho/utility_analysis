@@ -20,6 +20,36 @@ import calendar
 import os
 
 
+def get_census_tract(df):
+    """
+    Function to get the census tracts for all addresses in a dataframe.
+
+    Deprecated - use get_geocodes_batch() and _get_geocodes_single_chunk()
+    instead
+
+    Required library:
+    ----------------
+    * censusgeocode (have to install separately:
+                     https://pypi.python.org/pypi/censusgeocode)
+
+    Parameters:
+    ----------
+    df: Pandas dataframe
+        dataframe to get census tracts with. Must contain the fields 'address',
+        'city', and 'zip'
+
+    Return:
+    -------
+    df: Pandas dataframe
+        same with df from input, except with 'tract_geocode' as an additional
+        column containing the census tract number of each row
+    """
+    globals()['censusgeocode'] = __import__('censusgeocode')
+    df = df.copy()
+    df['tract_geocode'] = df.apply(_get_geocode_single, axis=1)
+    return df
+
+
 def _get_geocode_single(row, state='CA'):
     """
     Internal function to get the geocode of a single address. Used as part of
@@ -52,74 +82,6 @@ def _get_geocode_single(row, state='CA'):
     except (TypeError, KeyError, IndexError):
         tract_geocode = np.nan
     return tract_geocode
-
-
-def get_census_tract(df):
-    """
-    Function to get the census tracts for all addresses in a dataframe.
-
-    Deprecated - use get_geocodes_batch() and _get_geocodes_single_chunk()
-    instead
-
-    Required library:
-    ----------------
-    * censusgeocode (have to install separately:
-                     https://pypi.python.org/pypi/censusgeocode)
-
-    Parameters:
-    ----------
-    df: Pandas dataframe
-        dataframe to get census tracts with. Must contain the fields 'address',
-        'city', and 'zip'
-
-    Return:
-    -------
-    df: Pandas dataframe
-        same with df from input, except with 'tract_geocode' as an additional
-        column containing the census tract number of each row
-    """
-    globals()['censusgeocode'] = __import__('censusgeocode')
-    df = df.copy()
-    df['tract_geocode'] = df.apply(_get_geocode_single, axis=1)
-    return df
-
-
-def _get_geocodes_single_chunk(chunk, chunk_id=None,
-                               save_chunk=True, chunk_dir='./'):
-    """
-    Internal function to get the geocode of a chunk of many addresses in batch
-    using the Census Geocoding Services API batch service. Used as part of
-    get_geocodes_batch()
-
-    Parameters:
-    ----------
-    chunk: Pandas dataframe
-        small chunk of addresses to match geocodes with. Must contain the
-        fields 'address', 'city', 'zipcode', and 'state'. Limited to 1000 rows
-        in chunk due to the census geocoder API.
-    chunk_id: str or int (default: None)
-        name of the chunk for saving into temporary file if save_chunk is True
-    save_chunk: bool (default: True)
-        save geocoded chunk into temporary file if True. Useful for restarting
-        if function breaks due to API connection timeout
-    chunk_dir: str (default: './')
-        path to the directory for saving the temporary chunk files
-
-    Return:
-    ------
-    geocodes: Pandas dataframe
-        geocode results. See https://github.com/datadesk/python-censusbatchgeocoder
-        for details
-    """
-    chunk_dict = chunk.to_dict('records')
-    try:
-        geocodes = pd.DataFrame(censusbatchgeocoder.geocode(chunk_dict))
-        if save_chunk:
-            chunk_path = os.path.join(chunk_dir, str(chunk_id) + '.csv')
-            geocodes.to_csv(chunk_path, index=False)
-    except ValueError:
-        geocodes = None
-    return geocodes
 
 
 def get_geocodes_batch(df, max_chunk_size=1000,
@@ -190,7 +152,67 @@ def get_geocodes_batch(df, max_chunk_size=1000,
     return df_geocodes
 
 
+def _get_geocodes_single_chunk(chunk, chunk_id=None,
+                               save_chunk=True, chunk_dir='./'):
+    """
+    Internal function to get the geocode of a chunk of many addresses in batch
+    using the Census Geocoding Services API batch service. Used as part of
+    get_geocodes_batch()
+
+    Parameters:
+    ----------
+    chunk: Pandas dataframe
+        small chunk of addresses to match geocodes with. Must contain the
+        fields 'address', 'city', 'zipcode', and 'state'. Limited to 1000 rows
+        in chunk due to the census geocoder API.
+    chunk_id: str or int (default: None)
+        name of the chunk for saving into temporary file if save_chunk is True
+    save_chunk: bool (default: True)
+        save geocoded chunk into temporary file if True. Useful for restarting
+        if function breaks due to API connection timeout
+    chunk_dir: str (default: './')
+        path to the directory for saving the temporary chunk files
+
+    Return:
+    ------
+    geocodes: Pandas dataframe
+        geocode results. See https://github.com/datadesk/python-censusbatchgeocoder
+        for details
+    """
+    chunk_dict = chunk.to_dict('records')
+    try:
+        geocodes = pd.DataFrame(censusbatchgeocoder.geocode(chunk_dict))
+        if save_chunk:
+            chunk_path = os.path.join(chunk_dir, str(chunk_id) + '.csv')
+            geocodes.to_csv(chunk_path, index=False)
+    except ValueError:
+        geocodes = None
+    return geocodes
+
+
 def assign_bldg_type(df, bldg_type_file):
+    """
+    Function to assign standardized building type to a dataframe of addresses
+    based on their CoStar or DMP building categories
+
+    Parameters:
+    ----------
+    df: Pandas dataframe
+        dataframe to assign building types with. Must contain fields
+        'PropertyType' (from CoStar), 'Secondary Type' (from CoStar),
+        'USE_CODE_STD_CTGR_DESC' (from DMP), and 'USE_CODE_STD_DESC' (from DMP)
+    bldg_type_file: str
+        path to the csv file containing the mapping from CoStar/DMP building
+        categories to the standardized building types. Must contain fields
+        'PropertyType' (from CoStar), 'Secondary Type' (from CoStar),
+        'USE_CODE_STD_CTGR_DESC' (from DMP), and 'USE_CODE_STD_DESC' (from DMP)
+
+    Return:
+    -------
+    Pandas dataframe
+        same as df in input except with additional columns as specified by
+        bldg_type_file
+    """
     bldg_type_mapping = pd.read_csv(bldg_type_file)
     return df.merge(bldg_type_mapping,
                     how='left',
@@ -199,11 +221,56 @@ def assign_bldg_type(df, bldg_type_file):
 
 
 def get_climate_zones(df, cz_file):
+    """
+    Function to assign climate zone to a dataframe of addresses based on their
+    zip codes
+
+    Parameters:
+    ----------
+    df: Pandas dataframe
+        dataframe to assign climate zones with. Must contain fields "zip"
+    cz_file: str
+        path to the csv file containing the zipcode-to-climate zone mapping.
+        (http://www.energy.ca.gov/maps/renewable/building_climate_zones.html)
+        Must contain fields 'zip' and 'cz'
+
+    Return:
+    -------
+    Pandas dataframe
+        same as df in input except with the additional columns 'cz'
+    """
     cz = pd.read_csv(cz_file, dtype={'zip': str, 'cz': str})
     return df.merge(cz, on='zip', how='left')
 
 
 def merge_building_cis_data(bldg_data, cis, merge_on_range=True):
+    """
+    Function to merge building data (e.g. CoStar or DMP) with CIS data, with
+    the capability to merge addresses with hyphenated ranges in street numbers
+    (e.g. commonly seen in building data) to the corresponding single street
+    number addresses (e.g. those in CIS)
+
+    Parameters:
+    ----------
+    bldg_data: Pandas dataframe
+        building data dataframe. Must contain the fields 'address', 'city', and
+        'zip'. The field 'address' must contain single-street-number addresses
+        only
+    cis: Pandas dataframe
+        CIS dataframe. Must contain the fields 'address', 'city', and 'zip'.
+        The field 'address' could contain hyphenated ranges in street numbers.
+    merge_on_range: bool (default: True)
+        If True, merge addresses with hyphenated ranges in street numbers to
+        the corresponding single street number addresses, and keep the address
+        with street number range in the final output
+
+    Return:
+    -------
+    bldg_cis: Pandas dataframe
+        merged results from bldg_data and cis
+    """
+    # If enabled, replace addresses in CIS that match with the range addresses
+    # in bldg_data by the matching range addresses
     if merge_on_range:
         range_addr_map = _expand_range_addr(bldg_data)
         cis = cis.merge(range_addr_map,
@@ -213,6 +280,7 @@ def merge_building_cis_data(bldg_data, cis, merge_on_range=True):
         ind = cis['range_address'].notnull()
         cis.loc[ind, 'address'] = cis.loc[ind, 'range_address']
         cis = cis.drop(['indiv_address', 'range_address'], axis=1)
+    # Merge bldg_data with cis
     bldg_cis = pd.merge(bldg_data, cis,
                         how='inner', on=['address', 'city', 'zip'])
     return bldg_cis
