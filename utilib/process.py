@@ -289,7 +289,20 @@ def merge_building_cis_data(bldg_data, cis, merge_on_range=True):
 def _expand_range_addr(df):
     """
     Internal function called by merge_building_cis_data(). Given a dataframe
-    containing a 
+    containing a column 'address', the function looks for addresses that
+    contains hyphenated ranges in street numbers and returns a dataframe with
+    the "expanded" version of the addresses, i.e. all possible single-numbered
+    addresses that fall within the ranges.
+
+    Parameters:
+    ----------
+    df: Pandas dataframe
+        dataframe containing the 'address' column.
+
+    Return:
+    -------
+    Pandas dataframe
+        expanded single-numbered addresses given the range addresses in df
     """
     address = df['address']
     regex = r"^[0-9]+-[0-9]+$"
@@ -302,6 +315,23 @@ def _expand_range_addr(df):
 
 
 def _expand_range_addr_single(row):
+    """
+    Internal function called by _expand_range_addr(). Given a address that
+    contain hyphenated range in its street number, the function returns a
+    dataframe with the "expanded" version of that address, i.e. all possible
+    single-numbered addresses that fall within the range.
+
+    Parameters:
+    ----------
+    row: Pandas series
+        row containing the field 'address', 'city', and 'zip'. The field
+        'address' must contain hyphenated range in its street number.
+
+    Return:
+    -------
+    Pandas dataframe
+        expanded single-numbered addresses given the range address in row
+    """
     address = row['address']
     city = row['city']
     zipcodes = row['zip']
