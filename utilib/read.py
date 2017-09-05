@@ -6,7 +6,7 @@ Required libraries:
 * pandas (included in Anaconda)
 
 Anthony Ho <anthony.ho@energy.ca.gov>
-Last update 9/1/2017
+Last update 9/5/2017
 """
 
 import numpy as np
@@ -63,6 +63,15 @@ def _modify_fields(usecols, dtype, badcols):
     badcols: dict
         dictionary indicating how the name of the columns are to be changed.
         Keys are the old column names and values are the new column names
+
+    Return:
+    ------
+    usecols: list
+        same as usecols in input except with entries renamed as indicated by
+        badcols
+    dtype: dict
+        same as dtype in input except with entries renamed as indicated by
+        badcols
     """
     for col in badcols:
         usecols = [badcols[col] if uc == col else uc for uc in usecols]
@@ -87,6 +96,15 @@ def _drop_fields(usecols, dtype, dropcols):
         data type
     dropcols: list
         columns to be removed from usecols and dtypes
+    
+    Return:
+    ------
+    usecols: list
+        same as usecols in input except with entries removed as indicated by
+        badcols
+    dtype: dict
+        same as dtype in input except with entries removed as indicated by
+        badcols
     """
     for col in dropcols:
         try:
@@ -109,6 +127,11 @@ def _rev_dict(d):
     ----------
     d: dict
         dictionary to be reversed
+
+    Return:
+    ------
+    dict
+        the reversed dictionary
     """
     return {v: k for k, v in d.items()}
 
