@@ -450,6 +450,26 @@ def _expand_row(row, list_fields):
 
 
 def _get_days_in_months(start_date, end_date, n_months, list_yr_mo):
+    """
+    Internaty function for computing the number of days in a list of months.
+    Used with _expand_row().
+
+    Parameters:
+    ----------
+    start_date: datetime object
+        start date of a bill
+    end_date: datetime object
+        end date of a bill
+    n_months: int
+        number of months in list_yr_mo
+    list_yr_mo: list
+        list of yr_mo in the format of 'YYYY-mm'
+
+    Return:
+    -------
+    numpy array
+        array of number of days in each calendar month
+    """
     if n_months == 1:
         days_in_months = np.array([(end_date - start_date).days])
     else:
@@ -463,15 +483,28 @@ def _get_days_in_months(start_date, end_date, n_months, list_yr_mo):
     return np.array(days_in_months)
 
 
-# Trick to do the following:
-# 1. when E and G are both present in a given month, return E + G
-# 2. when only E is present in a given month, return:
-#    (a) np.nan when the G is present in any other months for the same building
-#    (b) E when the G is not present in any other months for the same building
-# 3. when only G is present in a given month, return:
-#    (a) np.nan when the E is present in any other months for the same building
-#    (b) G when the E is not present in any other months for the same building
 def _masked_add(elec, gas):
+    """
+    Internal function for adding energy consumption of different fuel types as
+    described by the following:
+    1. when E and G are both present in a given month, return E + G
+    2. when only E is present in a given month, return:
+     (a) np.nan when the G is present in any other months for the same building
+     (b) E when the G is not present in any other months for the same building
+    3. when only G is present in a given month, return:
+     (a) np.nan when the E is present in any other months for the same building
+     (b) G when the E is not present in any other months for the same building
+
+    Parameters:
+    ----------
+    elec: Pandas series
+    gas: Pandas series
+
+    Return:
+    -------
+    total: Pandas series
+        sum of elec and gas consumption (in kBTU) as defined by above
+    """
     # Define mask for electric according to rules above
     all_zeros_elec = ~elec.notnull().any(axis=1)
     mask_elec = elec.notnull().replace({True: 1, False: np.nan})
