@@ -356,12 +356,55 @@ def _expand_range_addr_single(row):
 def calendarize(df, group_keys=['keyAcctID', 'premiseID'],
                 list_fields=['kWh'],
                 keep_cols=[]):
+    """
+    Function to calendarize billing data into calendar months based on start
+    and end dates of bills
+
+    Parameters:
+    ----------
+    df: Pandas dataframe
+        dataframe to be calendarized. Must be in "long-form" with the following
+        columns: 'lastReadDate', 'ReadDate', 'readDays'
+    group_keys: list of str or str (default: ['keyAcctID', 'premiseID'])
+        columns to be used as group keys (e.g. grouping by account/building)
+    list_fields: list of str (default: ['kWh'])
+        columns for the values to be calendarized (e.g. kWh/Therms/bill_amount)
+    keep_cols: list of str (default: [])
+        columns to be kept constant during calendarization (e.g. rate)
+
+    Return:
+    -------
+    Pandas dataframe
+        calendarized version of df containing a column called 'yr_mo' which
+        indicates the calendar year/month instead of 'lastReadDate' and
+        'ReadDate'.
+    """
     new_df = df.groupby(group_keys).apply(_calendarize_group,
                                           list_fields, keep_cols)
     return new_df.reset_index(drop=True, level=-1).reset_index()
 
 
 def _calendarize_group(group, list_fields, keep_cols):
+    """
+    Internal function for calendarizing a single group. Used with calendarize()
+
+    Parameters:
+    ----------
+    group: Pandas dataframe
+        group to be calendarized. Must be in "long-form" with the following
+        columns: 'lastReadDate', 'ReadDate', 'readDays'
+    list_fields: list of str
+        columns for the values to be calendarized (e.g. kWh/Therms/bill_amount)
+    keep_cols: list of str
+        columns to be kept constant during calendarization (e.g. rate)
+
+    Return:
+    -------
+    calendarized_group: Pandas dataframe
+        calendarized version of group containing a column called 'yr_mo' which
+        indicates the calendar year/month instead of 'lastReadDate' and
+        'ReadDate'.
+    """
     expanded_rows = []
     for row in group.itertuples():
         expanded_rows.append(_expand_row(row, list_fields))
@@ -373,6 +416,24 @@ def _calendarize_group(group, list_fields, keep_cols):
 
 
 def _expand_row(row, list_fields):
+    """
+    Internal function for calendarizing a single bill (a row). Used with
+    _calendarize_group()
+
+    Parameters:
+    ----------
+    row: Pandas series
+        bill to be calendarized. Must contain the following columns:
+        'lastReadDate', 'ReadDate', 'readDays'
+    list_fields: list of str
+        columns for the values to be calendarized (e.g. kWh/Therms/bill_amount)
+
+    Return:
+    -------
+    expanded_row: Pandas dataframe
+        dataframe containing rows that correspond to all calendar months
+        contained in the bill
+    """
     start_date = row.lastReadDate
     end_date = row.readDate
     n_months = ((end_date.year - start_date.year) * 12 +
