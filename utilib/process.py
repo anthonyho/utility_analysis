@@ -287,6 +287,10 @@ def merge_building_cis_data(bldg_data, cis, merge_on_range=True):
 
 
 def _expand_range_addr(df):
+    """
+    Internal function called by merge_building_cis_data(). Given a dataframe
+    containing a 
+    """
     address = df['address']
     regex = r"^[0-9]+-[0-9]+$"
     ind = address.str.split(pat=' ', n=1).str[0].str.contains(regex)
