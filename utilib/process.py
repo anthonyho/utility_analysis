@@ -1,8 +1,15 @@
 """
-Python module for processing utility data
+Python module for processing customer-level monthly utility data
+
+Required libraries:
+* numpy (included in Anaconda)
+* scipy (included in Anaconda)
+* pandas (included in Anaconda)
+* calendar (included in Python)
+* os (included in Python)
 
 Anthony Ho <anthony.ho@energy.ca.gov>
-Last update 8/30/2017
+Last update 9/5/2017
 """
 
 import numpy as np
@@ -14,6 +21,24 @@ import os
 
 
 def _get_geocode_single(row, state='CA'):
+    """
+    Internal function to get the geocode of a single address. Used as part of
+    get_census_tract()
+
+    Parameters:
+    ----------
+    row: Pandas series
+        row of the dataframe for getting the geocode. Must contain the fields
+        'address', 'city', and 'zip'
+    state: str (default: 'CA')
+        two–letter state abbreviation for the address
+
+    Return:
+    ------
+    tract_geocode: int or np.nan
+        11 digit census tract number (2-digit state code + 3-digit county code
+        + 6-digit census tract code)
+    """
     address = row['address']
     city = row['city']
     zipcode = row['zip']
@@ -27,6 +52,26 @@ def _get_geocode_single(row, state='CA'):
 
 
 def get_census_tract(df):
+    """
+    Function to get the census tracts for all addresses in a dataframe.
+
+    Required library:
+    ----------------
+    * censusgeocode (have to install separately:
+                     https://pypi.python.org/pypi/censusgeocode)
+
+    Parameters:
+    ----------
+    df: Pandas dataframe
+        dataframe to get census tracts with. Must contain the fields 'address',
+        'city', and 'zip'
+
+    Return:
+    -------
+    df: Pandas dataframe
+        same with df from input, except with 'tract_geocode' as an additional
+        column containing the census tract number of each row
+    """
     globals()['censusgeocode'] = __import__('censusgeocode')
     df = df.copy()
     df['tract_geocode'] = df.apply(_get_geocode_single, axis=1)
